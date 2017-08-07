@@ -73,7 +73,9 @@ namespace JohnKnoop.MongoRepository
 			Func<UpdateDefinitionBuilder<TEntity>, UpdateDefinition<TEntity>> update,
 			UpdateOptions options = null);
 
-		Task<long> IncrementCounterAsync(string name = null);
+		Task<long> IncrementCounterAsync(string name = null, int incrementBy = 1);
+		Task<long?> GetCounterValueAsync(string name = null);
+		Task ResetCounterAsync(string name = null, long newValue = 1);
 	}
 
 	public class ModifyOneCommand<TEntity>

@@ -88,12 +88,10 @@ namespace JohnKnoop.MongoRepository
 
 		public async Task<TReturnProjection> FindOneAndModifyAsync<TReturnProjection>(Expression<Func<TEntity, bool>> filter, Func<UpdateDefinitionBuilder<TEntity>, UpdateDefinition<TEntity>> update, Expression<Func<TEntity, TReturnProjection>> returnProjection, ReturnedDocumentState returnedDocumentState = ReturnedDocumentState.BeforeUpdate, bool upsert = false)
 		{
-			return await FindOneAndModifyAsync(filter, update, Builders<TEntity>.Projection.Expression(returnProjection),
-				returnedDocumentState);
+			return await FindOneAndModifyAsync(filter, update, Builders<TEntity>.Projection.Expression(returnProjection), returnedDocumentState, upsert);
 		}
 
-		public async Task<TReturnProjection> FindOneAndModifyAsync<TReturnProjection>(Expression<Func<TEntity, bool>> filter, Func<UpdateDefinitionBuilder<TEntity>, UpdateDefinition<TEntity>> update, ProjectionDefinition<TEntity, TReturnProjection> returnProjection,
-			ReturnedDocumentState returnedDocumentState = ReturnedDocumentState.AfterUpdate, bool upsert = false)
+		public async Task<TReturnProjection> FindOneAndModifyAsync<TReturnProjection>(Expression<Func<TEntity, bool>> filter, Func<UpdateDefinitionBuilder<TEntity>, UpdateDefinition<TEntity>> update, ProjectionDefinition<TEntity, TReturnProjection> returnProjection, ReturnedDocumentState returnedDocumentState = ReturnedDocumentState.AfterUpdate, bool upsert = false)
 		{
 			await MongoConfiguration.EnsureIndexes(MongoCollection);
 
@@ -194,7 +192,7 @@ namespace JohnKnoop.MongoRepository
 			await this.MongoCollection.UpdateManyAsync(filter, update(Builders<TEntity>.Update), options).ConfigureAwait(false);
 		}
 
-		public async Task<long> IncrementCounterAsync(string name = null)
+		public async Task<long?> GetCounterValueAsync(string name = null)
 		{
 			var counterCollectionName = "_counters";
 
@@ -208,24 +206,60 @@ namespace JohnKnoop.MongoRepository
 			var collection = MongoCollection.Database.GetCollection<BsonDocument>(counterCollectionName);
 			var fieldDefinition = new StringFieldDefinition<BsonDocument, long>(fieldName);
 
-			// todo cacha
-			await collection.Indexes.CreateOneAsync(
-				Builders<BsonDocument>.IndexKeys.Ascending(fieldDefinition),
-				new CreateIndexOptions
-				{
-					Unique = true
-				});
+			var result = await collection.Find(x => true)
+				.Project(Builders<BsonDocument>.Projection.Include(fieldDefinition))
+				.SingleOrDefaultAsync()
+				.ConfigureAwait(false);
+
+			return result?.TryGetElement(fieldName, out var element) ?? false
+				? element.Value?.ToInt64()
+				: null;
+		}
+
+		public async Task ResetCounterAsync(string name = null, long newValue = 0)
+		{
+			var counterCollectionName = "_counters";
+
+			var fieldName = MongoCollection.CollectionNamespace.CollectionName;
+
+			if (name != null)
+			{
+				fieldName += $"_{name}";
+			}
+
+			var collection = MongoCollection.Database.GetCollection<BsonDocument>(counterCollectionName);
+			var fieldDefinition = new StringFieldDefinition<BsonDocument, long>(fieldName);
+
+			await collection.UpdateOneAsync(
+				filter: x => true,
+				update: Builders<BsonDocument>.Update.Set(fieldDefinition, newValue)
+			).ConfigureAwait(false);
+		}
+
+		public async Task<long> IncrementCounterAsync(string name = null, int incrementBy = 1)
+		{
+			var counterCollectionName = "_counters";
+
+			var fieldName = MongoCollection.CollectionNamespace.CollectionName;
+
+			if (name != null)
+			{
+				fieldName += $"_{name}";
+			}
+
+			var collection = MongoCollection.Database.GetCollection<BsonDocument>(counterCollectionName);
+			var fieldDefinition = new StringFieldDefinition<BsonDocument, long>(fieldName);
 
 			var result = await collection.FindOneAndUpdateAsync<BsonDocument>(
 				filter: x => true,
-				update: Builders<BsonDocument>.Update.Inc(fieldDefinition, 1),
+				update: Builders<BsonDocument>.Update.Inc(fieldDefinition, incrementBy),
 				options: new FindOneAndUpdateOptions<BsonDocument>
 				{
 					ReturnDocument = ReturnDocument.After,
 					IsUpsert = true,
 					Projection = Builders<BsonDocument>.Projection.Include(fieldDefinition)
 				}
-			);
+			).ConfigureAwait(false);
 
 			return result.GetElement(fieldName).Value.ToInt64();
 		}
