@@ -33,6 +33,8 @@ namespace JohnKnoop.MongoRepository
 		{
 			return new MongoConfigurationBuilder();
 		}
+
+		public static IList<Type> GetMappedTypes() => MongoConfiguration.GetMappedTypes();
 	}
 
 	public class DatabaseRepository<TEntity> : IRepository<TEntity>
@@ -232,7 +234,11 @@ namespace JohnKnoop.MongoRepository
 
 			await collection.UpdateOneAsync(
 				filter: x => true,
-				update: Builders<BsonDocument>.Update.Set(fieldDefinition, newValue)
+				update: Builders<BsonDocument>.Update.Set(fieldDefinition, newValue),
+				options: new UpdateOptions
+				{
+					IsUpsert = true
+				}
 			).ConfigureAwait(false);
 		}
 

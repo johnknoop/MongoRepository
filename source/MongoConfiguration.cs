@@ -366,6 +366,8 @@ namespace JohnKnoop.MongoRepository
 
 		    _indexesEnsured.TryAdd(typeof(TEntity), true);
 	    }
+
+	    internal static IList<Type> GetMappedTypes() => _collectionNames.Keys.ToList();
     }
 
     public class DecimalToWholeCentsSerializer : IBsonSerializer<decimal>
