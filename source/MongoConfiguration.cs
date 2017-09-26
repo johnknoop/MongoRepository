@@ -336,27 +336,37 @@ namespace JohnKnoop.MongoRepository
             return _indices[type];
         }
 
-        internal static IMongoCollection<TEntity> GetMongoCollection<TEntity>(IMongoClient mongoClient, string tenantKey)
+        private static IMongoCollection<TEntity> GetMongoCollection<TEntity>(IMongoClient mongoClient, string tenantKey)
         {
             var entityType = typeof(TEntity);
-            var databaseName = GetDatabaseName(entityType, tenantKey);
 
-            var database = mongoClient.GetDatabase(databaseName);
-
-            if (!_collections.ContainsKey(entityType))
-            {
+            if (!_collections.ContainsKey(entityType)) {
                 throw new NotImplementedException($"{entityType.Name} is not mapped");
             }
+
+            var databaseName = GetDatabaseName(entityType, tenantKey);
+
+            return GetMongoCollectionInDatabase<TEntity>(mongoClient, databaseName);
+        }
+
+        private static IMongoCollection<TEntity> GetMongoCollectionInDatabase<TEntity>(IMongoClient mongoClient, string databaseName) {
+            var entityType = typeof(TEntity);
+
+            if (!_collections.ContainsKey(entityType)) {
+                throw new NotImplementedException($"{entityType.Name} is not mapped");
+            }
+
+            var database = mongoClient.GetDatabase(databaseName);
 
             var mongoCollection = database.GetCollection<TEntity>(_collections[entityType].CollectionName);
 
             return mongoCollection;
         }
 
-	    public static IRepository<TEntity> GetRepository<TEntity>(IMongoClient mongoClient, string tenantKey = null)
+        public static IRepository<TEntity> GetRepository<TEntity>(IMongoClient mongoClient, string tenantKey = null)
 	    {
 		    var mongoCollection = GetMongoCollection<TEntity>(mongoClient, tenantKey);
-		    var trashCollection = GetMongoCollection<DeletedObject>(mongoClient, tenantKey);
+		    var trashCollection = GetMongoCollectionInDatabase<DeletedObject>(mongoClient, GetDatabaseName(typeof(TEntity), tenantKey));
 
 		    return new DatabaseRepository<TEntity>(mongoCollection, trashCollection);
 		}

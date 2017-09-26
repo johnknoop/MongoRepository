@@ -14,11 +14,13 @@ namespace JohnKnoop.MongoRepository
 		public DeletedObject(object content)
 		{
 			Content = content;
-			Type = content.GetType().Name;
+		    Type = content.GetType();
+            TypeName = Type.Name;
 		}
 
-		public string Type { get; private set; }
+		public string TypeName { get; private set; }
 		public dynamic Content { get; private set; }
+        internal Type Type { get; private set; }
 	}
 
 	public enum ReturnedDocumentState
