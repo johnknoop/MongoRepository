@@ -16,6 +16,12 @@ using MongoDB.Driver;
 
 namespace JohnKnoop.MongoRepository
 {
+    public class CappedCollectionConfig
+    {
+        public int? MaxSize { get; private set; }
+        public int? MaxDocuments { get; private set; }
+    }
+
 	public class TypeMapping
 	{
 		public TypeMapping(string collectionName, string idMember)
@@ -29,8 +35,18 @@ namespace JohnKnoop.MongoRepository
 			CollectionName = collectionName;
 		}
 
-		public string CollectionName { get; private set; }
+	    public TypeMapping(string collectionName, string idMember, bool capped, CappedCollectionConfig cappedCollectionConfig)
+	    {
+	        CollectionName = collectionName;
+	        IdMember = idMember;
+	        Capped = capped;
+	        CappedCollectionConfig = cappedCollectionConfig;
+	    }
+
+	    public string CollectionName { get; private set; }
 		public string IdMember { get; private set; }
+	    public bool Capped { get; private set; }
+	    public CappedCollectionConfig CappedCollectionConfig { get; private set; }
 	}
 
 	public class TypeMappingConfiguration
@@ -57,25 +73,27 @@ namespace JohnKnoop.MongoRepository
 			return propertyName;
 		}
 
-		public TypeMappingConfiguration Map<T>(string collectionName, Expression<Func<T, string>> idProperty = null)
+        // MapCapped
+
+		public TypeMappingConfiguration Map<T>(string collectionName, Expression<Func<T, string>> idProperty = null, CappedCollectionConfig cappedCollectionConfig = null)
 		{
 			var idPropertyName = idProperty != null
 				? GetPropertyName(idProperty)
 				: null;
 
-			SingleClasses[typeof(T)] = new TypeMapping(collectionName, idPropertyName);
+			SingleClasses[typeof(T)] = new TypeMapping(collectionName, idPropertyName, cappedCollectionConfig != null, cappedCollectionConfig);
 			return this;
 		}
 
 		public TypeMappingConfiguration Map<T>() => Map<T>(nameof(T));
 
-		public TypeMappingConfiguration MapAlongWithSubclassesInSameAssebmly<T>(string collectionName, Expression<Func<T, string>> idProperty = null)
+		public TypeMappingConfiguration MapAlongWithSubclassesInSameAssebmly<T>(string collectionName, Expression<Func<T, string>> idProperty = null, CappedCollectionConfig cappedCollectionConfig = null)
 		{
 			var idPropertyName = idProperty != null
 				? GetPropertyName(idProperty)
 				: null;
 
-			PolymorpicClasses[typeof(T)] = new TypeMapping(collectionName, idPropertyName);
+			PolymorpicClasses[typeof(T)] = new TypeMapping(collectionName, idPropertyName, cappedCollectionConfig != null, cappedCollectionConfig);
 			return this;
 		}
 
@@ -185,6 +203,7 @@ namespace JohnKnoop.MongoRepository
 	    private static HashSet<Type> _globalTypes;
 	    private static IDatabaseNameProvider _databaseNameProvider;
 		private static readonly ConcurrentDictionary<Type, bool> _indexesEnsured = new ConcurrentDictionary<Type, bool>();
+		private static Dictionary<Type, CappedCollectionConfig> _cappedCollections;
 
 	    internal static void Build(MongoConfigurationBuilder builder)
 	    {
@@ -200,11 +219,14 @@ namespace JohnKnoop.MongoRepository
 		    var tenantTypesPolymorpicClasses = builder.TenantTypes?.PolymorpicClasses ?? new Dictionary<Type, TypeMapping>();
 		    var tenantTypesSingleClasses     = builder.TenantTypes?.SingleClasses ?? new Dictionary<Type, TypeMapping>();
 
-		    _collectionNames = globalTypesSingleClasses
-			    .Concat(globalTypesPolymorpicClasses)
-			    .Concat(tenantTypesSingleClasses)
-			    .Concat(tenantTypesPolymorpicClasses)
-			    .ToDictionary(x => x.Key, x => x.Value.CollectionName);
+	        var allMappedClasses = globalTypesSingleClasses
+	            .Concat(globalTypesPolymorpicClasses)
+	            .Concat(tenantTypesSingleClasses)
+	            .Concat(tenantTypesPolymorpicClasses)
+                .ToList();
+
+	        _cappedCollections = allMappedClasses.Where(x => x.Value.Capped).ToDictionary(x => x.Key, x => x.Value.CappedCollectionConfig);
+            _collectionNames = allMappedClasses.ToDictionary(x => x.Key, x => x.Value.CollectionName);
 
 		    if (!_collectionNames.ContainsKey(typeof(DeletedObject)))
 		    {
@@ -350,7 +372,23 @@ namespace JohnKnoop.MongoRepository
 			    return;
 		    }
 
-		    var createIndexOptionses = GetIndicesFor<TEntity>().Select(ix => new CreateIndexModel<TEntity>(
+            // Create capped collection
+
+	        if (_cappedCollections.ContainsKey(typeof(TEntity)))
+	        {
+	            var capConfig = _cappedCollections[typeof(TEntity)];
+
+                await mongoCollection.Database.CreateCollectionAsync(_collectionNames[typeof(TEntity)], new CreateCollectionOptions
+	            {
+	                Capped = true,
+                    MaxDocuments = capConfig.MaxDocuments,
+                    MaxSize = capConfig.MaxSize
+                });
+	        }
+
+            // Create index
+
+            var createIndexOptionses = GetIndicesFor<TEntity>().Select(ix => new CreateIndexModel<TEntity>(
 				ix.Keys,
 			    new CreateIndexOptions
 			    {
