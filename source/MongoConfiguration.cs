@@ -18,8 +18,8 @@ namespace JohnKnoop.MongoRepository
 {
     public class CappedCollectionConfig
     {
-        public int? MaxSize { get; private set; }
-        public int? MaxDocuments { get; private set; }
+        public int? MaxSize { get; internal set; }
+        public int? MaxDocuments { get; internal set; }
     }
 
 	public class TypeMapping
@@ -35,150 +35,160 @@ namespace JohnKnoop.MongoRepository
 			CollectionName = collectionName;
 		}
 
-	    public TypeMapping(string collectionName, string idMember, bool capped, CappedCollectionConfig cappedCollectionConfig)
-	    {
-	        CollectionName = collectionName;
-	        IdMember = idMember;
-	        Capped = capped;
-	        CappedCollectionConfig = cappedCollectionConfig;
-	    }
-
-	    public string CollectionName { get; private set; }
-		public string IdMember { get; private set; }
-	    public bool Capped { get; private set; }
-	    public CappedCollectionConfig CappedCollectionConfig { get; private set; }
+	    public string CollectionName { get; internal set; }
+		public string IdMember { get; internal set; }
+	    public bool Capped { get; internal set; }
+	    public CappedCollectionConfig CappedCollectionConfig { get; internal set; }
+	    public IList<DatabaseIndexDefinition> Indices { get; internal set; } = new List<DatabaseIndexDefinition>();
 	}
 
-	public class TypeMappingConfiguration
+    public class TypeMappingBuilder<TEnity>
+    {
+        public TypeMapping Mapping { get; private set; }
+
+        public TypeMappingBuilder(TypeMapping mapping)
+        {
+            Mapping = mapping;
+        }
+
+        public TypeMappingBuilder<TEnity> WithIdProperty(Expression<Func<TEnity, string>> idProperty)
+        {
+            Mapping.IdMember = GetPropertyName(idProperty);
+            return this;
+        }
+
+        public TypeMappingBuilder<TEnity> InCappedCollection(int? maxDocuments = null, int? maxSize = null)
+        {
+            Mapping.Capped = true;
+            Mapping.CappedCollectionConfig = new CappedCollectionConfig
+            {
+                MaxDocuments = maxDocuments,
+                MaxSize = maxSize
+            };
+
+            return this;
+        }
+
+        public TypeMappingBuilder<TEnity> WithIndex(Expression<Func<TEnity, object>> memberExpression, bool unique = false, bool sparse = false) {
+            var names = new Dictionary<string, int>
+            {
+                {GetPropertyName(memberExpression), 1}
+            };
+
+            var indexKeys = Newtonsoft.Json.JsonConvert.SerializeObject(names);
+
+            Mapping.Indices.Add(new DatabaseIndexDefinition {
+                Type = typeof(TEnity),
+                Keys = indexKeys,
+                Sparse = sparse,
+                Unique = unique
+            });
+
+            return this;
+        }
+
+        public TypeMappingBuilder<TEnity> WithIndex(IEnumerable<Expression<Func<TEnity, object>>> memberExpressions, bool unique = false, bool sparse = false) {
+            var names =
+                memberExpressions.Select(GetPropertyName).ToDictionary(x => x, x => 1);
+
+            var indexKeys = Newtonsoft.Json.JsonConvert.SerializeObject(names);
+
+            Mapping.Indices.Add(new DatabaseIndexDefinition {
+                Type = typeof(TEnity),
+                Keys = indexKeys,
+                Sparse = sparse,
+                Unique = unique
+            });
+
+            return this;
+        }
+
+        private string GetPropertyName<TSource>(Expression<Func<TSource, object>> memberExpression) {
+            var expression = memberExpression.Body as UnaryExpression;
+            string propertyName;
+
+            if (expression == null) {
+                var memExpr = memberExpression.Body as MemberExpression;
+                propertyName = memExpr.Member.Name;
+            } else {
+                var property = expression.Operand as MemberExpression;
+                propertyName = property.Member.Name;
+            }
+
+            return propertyName;
+        }
+
+        private string GetPropertyName<TSource>(Expression<Func<TSource, string>> memberExpression) {
+            var expression = memberExpression.Body as UnaryExpression;
+            string propertyName;
+
+            if (expression == null) {
+                var memExpr = memberExpression.Body as MemberExpression;
+                propertyName = memExpr.Member.Name;
+            } else {
+                var property = expression.Operand as MemberExpression;
+                propertyName = property.Member.Name;
+            }
+
+            return propertyName;
+        }
+    }
+
+	public class DatabaseConfiguration
 	{
 		internal Dictionary<Type, TypeMapping> SingleClasses { get; private set; } = new Dictionary<Type, TypeMapping>();
 		internal Dictionary<Type, TypeMapping> PolymorpicClasses { get; private set; } = new Dictionary<Type, TypeMapping>();
 
-		private string GetPropertyName<TSource>(Expression<Func<TSource, string>> memberExpression)
-		{
-			var expression = memberExpression.Body as UnaryExpression;
-			string propertyName;
 
-			if (expression == null)
-			{
-				var memExpr = memberExpression.Body as MemberExpression;
-				propertyName = memExpr.Member.Name;
-			}
-			else
-			{
-				var property = expression.Operand as MemberExpression;
-				propertyName = property.Member.Name;
-			}
-
-			return propertyName;
-		}
 
         // MapCapped
 
-		public TypeMappingConfiguration Map<T>(string collectionName, Expression<Func<T, string>> idProperty = null, CappedCollectionConfig cappedCollectionConfig = null)
+		public DatabaseConfiguration Map<T>(string collectionName, Action<TypeMappingBuilder<T>> builderFactory = null)
 		{
-			var idPropertyName = idProperty != null
-				? GetPropertyName(idProperty)
-				: null;
+            var builder = new TypeMappingBuilder<T>(new TypeMapping(collectionName));
 
-			SingleClasses[typeof(T)] = new TypeMapping(collectionName, idPropertyName, cappedCollectionConfig != null, cappedCollectionConfig);
+		    builderFactory?.Invoke(builder);
+		    SingleClasses[typeof(T)] = builder.Mapping;
+
 			return this;
 		}
 
-		public TypeMappingConfiguration Map<T>() => Map<T>(nameof(T));
+		public DatabaseConfiguration Map<T>() => Map<T>(nameof(T));
 
-		public TypeMappingConfiguration MapAlongWithSubclassesInSameAssebmly<T>(string collectionName, Expression<Func<T, string>> idProperty = null, CappedCollectionConfig cappedCollectionConfig = null)
+		public DatabaseConfiguration MapAlongWithSubclassesInSameAssebmly<T>(string collectionName, Action<TypeMappingBuilder<T>> builderFactory = null)
 		{
-			var idPropertyName = idProperty != null
-				? GetPropertyName(idProperty)
-				: null;
+		    var builder = new TypeMappingBuilder<T>(new TypeMapping(collectionName));
 
-			PolymorpicClasses[typeof(T)] = new TypeMapping(collectionName, idPropertyName, cappedCollectionConfig != null, cappedCollectionConfig);
-			return this;
-		}
+		    builderFactory?.Invoke(builder);
+		    PolymorpicClasses[typeof(T)] = builder.Mapping;
 
-		public TypeMappingConfiguration MapAlongWithSubclassesInSameAssebmly<T>() => MapAlongWithSubclassesInSameAssebmly<T>(nameof(T));
+		    return this;
+        }
+
+		public DatabaseConfiguration MapAlongWithSubclassesInSameAssebmly<T>() => MapAlongWithSubclassesInSameAssebmly<T>(nameof(T));
 	}
 
 	public class MongoConfigurationBuilder
 	{
-		internal TypeMappingConfiguration GlobalTypes { get; private set; }
-		internal TypeMappingConfiguration TenantTypes { get; private set; }
-		internal IList<DatabaseIndexDefinition> Indices { get; } = new List<DatabaseIndexDefinition>();
+		internal Dictionary<string, DatabaseConfiguration> GlobalDatabases { get; private set; } = new Dictionary<string, DatabaseConfiguration>();
+		internal Dictionary<string, DatabaseConfiguration> TenantDatabases { get; private set; } = new Dictionary<string, DatabaseConfiguration>();
 		internal IDatabaseNameProvider DatabaseNameProvider { get; private set; }
-
-		private static string GetPropertyName<TSource>(Expression<Func<TSource, object>> memberExpression)
-		{
-			var expression = memberExpression.Body as UnaryExpression;
-			string propertyName;
-
-			if (expression == null)
-			{
-				var memExpr = memberExpression.Body as MemberExpression;
-				propertyName = memExpr.Member.Name;
-			}
-			else
-			{
-				var property = expression.Operand as MemberExpression;
-				propertyName = property.Member.Name;
-			}
-
-			return propertyName;
-		}
 
 		/// <summary>
 		/// These types will be persisted in database-per-assembly-and-tenant style
 		/// </summary>
-		public MongoConfigurationBuilder WithTenantMappings(Func<TypeMappingConfiguration, TypeMappingConfiguration> collectionNameMapping)
+		public MongoConfigurationBuilder DatabasePerTenant(string databaseName, Func<DatabaseConfiguration, DatabaseConfiguration> collectionNameMapping)
 		{
-			TenantTypes = collectionNameMapping(new TypeMappingConfiguration());
+			TenantDatabases.Add(databaseName, collectionNameMapping(new DatabaseConfiguration()));
 			return this;
 		}
 
 		/// <summary>
 		/// These types will be persisted in a database-per-assembly style
 		/// </summary>
-		public MongoConfigurationBuilder WithMappings(Func<TypeMappingConfiguration, TypeMappingConfiguration> collectionNameMapping)
+		public MongoConfigurationBuilder Database(string databaseName, Func<DatabaseConfiguration, DatabaseConfiguration> collectionNameMapping)
 		{
-			GlobalTypes = collectionNameMapping(new TypeMappingConfiguration());
-			return this;
-		}
-
-		public MongoConfigurationBuilder WithIndex<T>(Expression<Func<T, object>> memberExpression, bool unique = false, bool sparse = false)
-		{
-			var names = new Dictionary<string, int>
-			{
-				{GetPropertyName(memberExpression), 1}
-			};
-
-			var indexKeys = Newtonsoft.Json.JsonConvert.SerializeObject(names);
-
-			this.Indices.Add(new DatabaseIndexDefinition
-			{
-				Type = typeof(T),
-				Keys = indexKeys,
-				Sparse = sparse,
-				Unique = unique
-			});
-
-			return this;
-		}
-
-		public MongoConfigurationBuilder WithIndex<T>(IEnumerable<Expression<Func<T, object>>> memberExpressions, bool unique = false, bool sparse = false)
-		{
-			var names =
-				memberExpressions.Select(GetPropertyName).ToDictionary(x => x, x => 1);
-
-			var indexKeys = Newtonsoft.Json.JsonConvert.SerializeObject(names);
-
-			this.Indices.Add(new DatabaseIndexDefinition
-			{
-				Type = typeof(T),
-				Keys = indexKeys,
-				Sparse = sparse,
-				Unique = unique
-			});
-
+			GlobalDatabases.Add(databaseName, collectionNameMapping(new DatabaseConfiguration()));
 			return this;
 		}
 
@@ -197,11 +207,16 @@ namespace JohnKnoop.MongoRepository
 
 	public static class MongoConfiguration
     {
+        private class DatabaseCollectionNamePair
+        {
+            public string DatabaseName { get; set; }
+            public string CollectionName { get; set; }
+        }
+
 	    private static bool _isConfigured = false;
-        private static Dictionary<Type, string> _collectionNames;
+        private static Dictionary<Type, DatabaseCollectionNamePair> _collections = new Dictionary<Type, DatabaseCollectionNamePair>();
         private static ILookup<Type, DatabaseIndexDefinition> _indices;
 	    private static HashSet<Type> _globalTypes;
-	    private static IDatabaseNameProvider _databaseNameProvider;
 		private static readonly ConcurrentDictionary<Type, bool> _indexesEnsured = new ConcurrentDictionary<Type, bool>();
 		private static Dictionary<Type, CappedCollectionConfig> _cappedCollections;
 
@@ -212,29 +227,61 @@ namespace JohnKnoop.MongoRepository
 				return;
 			}
 
-		    _databaseNameProvider = builder.DatabaseNameProvider ?? new ContainingAssemblyNameDatabaseNameProvider();
+	        var allMappedClasses = builder.GlobalDatabases.SelectMany(x => x.Value.PolymorpicClasses.Select(y => new
+	        {
+	            DatabaseName = WashDatabaseName(x.Key),
+	            IsPerTenantDatabase = false,
+	            IsPolymorphic = true,
+	            Type = y.Key,
+	            Mapping = y.Value
+	        }).Concat(x.Value.SingleClasses.Select(y => new
+	        {
+	            DatabaseName = WashDatabaseName(x.Key),
+	            IsPerTenantDatabase = false,
+	            IsPolymorphic = false,
+	            Type = y.Key,
+	            Mapping = y.Value
+	        }))).Concat(builder.TenantDatabases.SelectMany(x => x.Value.PolymorpicClasses.Select(y => new
+	        {
+	            DatabaseName = WashDatabaseName(x.Key),
+	            IsPerTenantDatabase = true,
+	            IsPolymorphic = true,
+	            Type = y.Key,
+	            Mapping = y.Value
+	        }).Concat(x.Value.SingleClasses.Select(y => new
+	        {
+	            DatabaseName = WashDatabaseName(x.Key),
+	            IsPerTenantDatabase = true,
+	            IsPolymorphic = false,
+	            Type = y.Key,
+	            Mapping = y.Value
+	        })))).ToList();
 
-			var globalTypesSingleClasses     = builder.GlobalTypes?.SingleClasses ?? new Dictionary<Type, TypeMapping>();
-		    var globalTypesPolymorpicClasses = builder.GlobalTypes?.PolymorpicClasses ?? new Dictionary<Type, TypeMapping>();
-		    var tenantTypesPolymorpicClasses = builder.TenantTypes?.PolymorpicClasses ?? new Dictionary<Type, TypeMapping>();
-		    var tenantTypesSingleClasses     = builder.TenantTypes?.SingleClasses ?? new Dictionary<Type, TypeMapping>();
+	        _cappedCollections = allMappedClasses.Where(x => x.Mapping.Capped).ToDictionary(x => x.Type, x => x.Mapping.CappedCollectionConfig);
+            _collections = allMappedClasses.ToDictionary(x => x.Type, x => new DatabaseCollectionNamePair
+            {
+                CollectionName = x.Mapping.CollectionName,
+                DatabaseName = x.DatabaseName
+            });
 
-	        var allMappedClasses = globalTypesSingleClasses
-	            .Concat(globalTypesPolymorpicClasses)
-	            .Concat(tenantTypesSingleClasses)
-	            .Concat(tenantTypesPolymorpicClasses)
-                .ToList();
-
-	        _cappedCollections = allMappedClasses.Where(x => x.Value.Capped).ToDictionary(x => x.Key, x => x.Value.CappedCollectionConfig);
-            _collectionNames = allMappedClasses.ToDictionary(x => x.Key, x => x.Value.CollectionName);
-
-		    if (!_collectionNames.ContainsKey(typeof(DeletedObject)))
+		    if (!_collections.ContainsKey(typeof(DeletedObject)))
 		    {
-			    _collectionNames[typeof(DeletedObject)] = "DeletedObjects";
+			    _collections[typeof(DeletedObject)] = new DatabaseCollectionNamePair {
+			        CollectionName = "DeletedObjects",
+			        DatabaseName = null // One per database
+			    };
 		    }
 
-			_indices = builder.Indices.ToLookup(x => x.Type);
-		    _globalTypes = new HashSet<Type>(globalTypesSingleClasses.Keys.Concat(globalTypesPolymorpicClasses.Keys));
+			_indices = allMappedClasses
+                .SelectMany(x => x.Mapping.Indices.Select(y => new
+			        {
+			            x.Type,
+                        Index = y
+			        })
+			    )
+                .ToLookup(x => x.Type, x => x.Index);
+
+		    _globalTypes = new HashSet<Type>(allMappedClasses.Where(x => !x.IsPerTenantDatabase).Select(x => x.Type));
 
 		    var conventionPack = new ConventionPack
 		    {
@@ -244,34 +291,8 @@ namespace JohnKnoop.MongoRepository
 
 		    ConventionRegistry.Register("Conventions", conventionPack, type => true);
 
-		    var typesWithNonConventionalIds = 
-				globalTypesSingleClasses.Select(x => new
-					{
-						IsPolymorphic = false,
-						Type = x.Key,
-						Mapping = x.Value
-					})
-				.Concat(tenantTypesSingleClasses.Select(x => new
-					{
-						IsPolymorphic = false,
-						Type = x.Key,
-						Mapping = x.Value
-					}))
-				.Concat(globalTypesPolymorpicClasses.Select(x => new
-					{
-						IsPolymorphic = true,
-						Type = x.Key,
-						Mapping = x.Value
-					}))
-			    
-			    .Concat(tenantTypesPolymorpicClasses.Select(x => new
-					{
-						IsPolymorphic = true,
-						Type = x.Key,
-						Mapping = x.Value
-					}));
 
-		    foreach (var t in typesWithNonConventionalIds)
+		    foreach (var t in allMappedClasses)
 		    {
 			    var bsonClassMap = new BsonClassMap(t.Type);
 
@@ -322,12 +343,12 @@ namespace JohnKnoop.MongoRepository
 
             var database = mongoClient.GetDatabase(databaseName);
 
-            if (!_collectionNames.ContainsKey(entityType))
+            if (!_collections.ContainsKey(entityType))
             {
                 throw new NotImplementedException($"{entityType.Name} is not mapped");
             }
 
-            var mongoCollection = database.GetCollection<TEntity>(_collectionNames[entityType]);
+            var mongoCollection = database.GetCollection<TEntity>(_collections[entityType].CollectionName);
 
             return mongoCollection;
         }
@@ -340,16 +361,19 @@ namespace JohnKnoop.MongoRepository
 		    return new DatabaseRepository<TEntity>(mongoCollection, trashCollection);
 		}
 
+        private static string WashDatabaseName(string name) {
+            return new string(name.Where(letter => letter >= 97 && letter <= 122 || letter >= 65 && letter <= 90).ToArray());
+        }
+
         private static string GetDatabaseName(Type entityType, string tenantKey = null)
         {
 	        if (entityType == null) throw new ArgumentNullException(nameof(entityType));
 
-	        return _databaseNameProvider.GetDatabaseName(
-		        entityType: entityType,
-		        tenantKey: _globalTypes.Contains(entityType)
-			        ? null
-			        : tenantKey
-				);
+            var databaseName = _collections[entityType].DatabaseName;
+
+            return tenantKey == null
+                ? databaseName
+                : $"{tenantKey}_{databaseName}";
         }
 
         private class StringObjectIdConvention : ConventionBase, IPostProcessingConvention
@@ -378,7 +402,7 @@ namespace JohnKnoop.MongoRepository
 	        {
 	            var capConfig = _cappedCollections[typeof(TEntity)];
 
-                await mongoCollection.Database.CreateCollectionAsync(_collectionNames[typeof(TEntity)], new CreateCollectionOptions
+                await mongoCollection.Database.CreateCollectionAsync(_collections[typeof(TEntity)].CollectionName, new CreateCollectionOptions
 	            {
 	                Capped = true,
                     MaxDocuments = capConfig.MaxDocuments,
@@ -405,7 +429,7 @@ namespace JohnKnoop.MongoRepository
 		    _indexesEnsured.TryAdd(typeof(TEntity), true);
 	    }
 
-	    internal static IList<Type> GetMappedTypes() => _collectionNames.Keys.ToList();
+	    internal static IList<Type> GetMappedTypes() => _collections.Keys.ToList();
     }
 
     public class DecimalToWholeCentsSerializer : IBsonSerializer<decimal>
