@@ -373,7 +373,7 @@ namespace JohnKnoop.MongoRepository
 
             var databaseName = _collections[entityType].DatabaseName;
 
-            return tenantKey == null
+            return _globalTypes.Contains(entityType)
                 ? databaseName
                 : $"{tenantKey}_{databaseName}";
         }
