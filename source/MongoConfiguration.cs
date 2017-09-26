@@ -44,13 +44,16 @@ namespace JohnKnoop.MongoRepository
 
     public class TypeMappingBuilder<TEnity>
     {
-        public TypeMapping Mapping { get; private set; }
+        internal TypeMapping Mapping { get; }
 
         public TypeMappingBuilder(TypeMapping mapping)
         {
             Mapping = mapping;
         }
 
+		/// <summary>
+		/// If the entity has an id property with a different name than <c>Id</c>
+		/// </summary>
         public TypeMappingBuilder<TEnity> WithIdProperty(Expression<Func<TEnity, string>> idProperty)
         {
             Mapping.IdMember = GetPropertyName(idProperty);
@@ -136,12 +139,8 @@ namespace JohnKnoop.MongoRepository
 
 	public class DatabaseConfiguration
 	{
-		internal Dictionary<Type, TypeMapping> SingleClasses { get; private set; } = new Dictionary<Type, TypeMapping>();
-		internal Dictionary<Type, TypeMapping> PolymorpicClasses { get; private set; } = new Dictionary<Type, TypeMapping>();
-
-
-
-        // MapCapped
+		internal Dictionary<Type, TypeMapping> SingleClasses { get; } = new Dictionary<Type, TypeMapping>();
+		internal Dictionary<Type, TypeMapping> PolymorpicClasses { get; } = new Dictionary<Type, TypeMapping>();
 
 		public DatabaseConfiguration Map<T>(string collectionName, Action<TypeMappingBuilder<T>> builderFactory = null)
 		{
@@ -192,13 +191,6 @@ namespace JohnKnoop.MongoRepository
 			return this;
 		}
 
-		public MongoConfigurationBuilder WithDatabaseNameProvider<T>(T databaseNameProvider) where T : IDatabaseNameProvider
-		{
-			this.DatabaseNameProvider = databaseNameProvider;
-
-			return this;
-		}
-
 		public void Build()
 		{
 			MongoConfiguration.Build(this);
@@ -217,7 +209,7 @@ namespace JohnKnoop.MongoRepository
         private static Dictionary<Type, DatabaseCollectionNamePair> _collections = new Dictionary<Type, DatabaseCollectionNamePair>();
         private static ILookup<Type, DatabaseIndexDefinition> _indices;
 	    private static HashSet<Type> _globalTypes;
-		private static readonly ConcurrentDictionary<Type, bool> _indexesEnsured = new ConcurrentDictionary<Type, bool>();
+		private static readonly ConcurrentDictionary<Type, bool> _indexesAndCapEnsured = new ConcurrentDictionary<Type, bool>();
 		private static Dictionary<Type, CappedCollectionConfig> _cappedCollections;
 
 	    internal static void Build(MongoConfigurationBuilder builder)
@@ -399,16 +391,21 @@ namespace JohnKnoop.MongoRepository
             }
         }
 
-	    internal static async Task EnsureIndexes<TEntity>(IMongoCollection<TEntity> mongoCollection)
+	    internal static async Task EnsureIndexesAndCap<TEntity>(IMongoCollection<TEntity> mongoCollection)
 	    {
-		    if (_indexesEnsured.ContainsKey(typeof(TEntity)))
+		    if (_indexesAndCapEnsured.ContainsKey(typeof(TEntity)))
 		    {
 			    return;
 		    }
 
             // Create capped collection
 
-	        if (_cappedCollections.ContainsKey(typeof(TEntity)))
+	        if (_cappedCollections.ContainsKey(typeof(TEntity)) &&
+				!(await mongoCollection .Database.ListCollectionsAsync(new ListCollectionsOptions
+				{
+					Filter = new BsonDocument("name", mongoCollection.CollectionNamespace.CollectionName)
+				})).Any()
+			)
 	        {
 	            var capConfig = _cappedCollections[typeof(TEntity)];
 
@@ -416,8 +413,8 @@ namespace JohnKnoop.MongoRepository
 	            {
 	                Capped = true,
                     MaxDocuments = capConfig.MaxDocuments,
-                    MaxSize = capConfig.MaxSize
-                });
+                    MaxSize = capConfig.MaxSize ?? 1000000000000 // One terabyte
+				});
 	        }
 
             // Create index
@@ -436,7 +433,7 @@ namespace JohnKnoop.MongoRepository
 			    await mongoCollection.Indexes.CreateManyAsync(createIndexOptionses).ConfigureAwait(false);
 		    }
 
-		    _indexesEnsured.TryAdd(typeof(TEntity), true);
+		    _indexesAndCapEnsured.TryAdd(typeof(TEntity), true);
 	    }
 
 	    internal static IList<Type> GetMappedTypes() => _collections.Keys.ToList();
