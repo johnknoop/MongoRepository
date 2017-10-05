@@ -63,7 +63,7 @@ namespace JohnKnoop.MongoRepository
 
 		public async Task InsertAsync(TEntity entity)
 		{
-			await MongoConfiguration.EnsureIndexes(MongoCollection);
+			await MongoConfiguration.EnsureIndexesAndCap(MongoCollection);
 			await this.MongoCollection.InsertOneAsync(entity).ConfigureAwait(false);
 		}
 
@@ -74,7 +74,7 @@ namespace JohnKnoop.MongoRepository
 
 		public async Task<ReplaceOneResult> ReplaceOneAsync(string id, TEntity entity, bool upsert = false)
 		{
-			await MongoConfiguration.EnsureIndexes(MongoCollection);
+			await MongoConfiguration.EnsureIndexesAndCap(MongoCollection);
 
 			if (id == null) throw new ArgumentNullException(nameof(id));
 			
@@ -85,7 +85,7 @@ namespace JohnKnoop.MongoRepository
 
 		public async Task<ReplaceOneResult> ReplaceOneAsync(Expression<Func<TEntity, bool>> filter, TEntity entity, bool upsert = false)
 		{
-			await MongoConfiguration.EnsureIndexes(MongoCollection);
+			await MongoConfiguration.EnsureIndexesAndCap(MongoCollection);
 
 			return await this.MongoCollection.ReplaceOneAsync(filter, entity, new UpdateOptions { IsUpsert = upsert }).ConfigureAwait(false);
 		}
@@ -97,7 +97,7 @@ namespace JohnKnoop.MongoRepository
 
 		public async Task<TReturnProjection> FindOneAndModifyAsync<TReturnProjection>(Expression<Func<TEntity, bool>> filter, Func<UpdateDefinitionBuilder<TEntity>, UpdateDefinition<TEntity>> update, ProjectionDefinition<TEntity, TReturnProjection> returnProjection, ReturnedDocumentState returnedDocumentState = ReturnedDocumentState.AfterUpdate, bool upsert = false)
 		{
-			await MongoConfiguration.EnsureIndexes(MongoCollection);
+			await MongoConfiguration.EnsureIndexesAndCap(MongoCollection);
 
 			var returnDocument = returnedDocumentState == ReturnedDocumentState.BeforeUpdate
 				? ReturnDocument.Before
@@ -118,7 +118,7 @@ namespace JohnKnoop.MongoRepository
 		{
 			if (id == null) throw new ArgumentNullException(nameof(id));
 
-			await MongoConfiguration.EnsureIndexes(MongoCollection);
+			await MongoConfiguration.EnsureIndexesAndCap(MongoCollection);
 
 			var filter = Builders<TDerived>.Filter.Eq("_id", ObjectId.Parse(id));
 
@@ -128,7 +128,7 @@ namespace JohnKnoop.MongoRepository
 
 		public async Task<bool> ModifyOneAsync<TDerived>(Expression<Func<TDerived, bool>> filter, Func<UpdateDefinitionBuilder<TDerived>, UpdateDefinition<TDerived>> update, bool upsert = false) where TDerived : TEntity
 		{
-			await MongoConfiguration.EnsureIndexes(MongoCollection);
+			await MongoConfiguration.EnsureIndexesAndCap(MongoCollection);
 
 			var result = await this.MongoCollection.OfType<TDerived>().UpdateOneAsync(filter, update(Builders<TDerived>.Update), new UpdateOptions { IsUpsert = upsert }).ConfigureAwait(false);
 			return result.MatchedCount == 1;
@@ -138,7 +138,7 @@ namespace JohnKnoop.MongoRepository
 		{
 			if (id == null) throw new ArgumentNullException(nameof(id));
 
-			await MongoConfiguration.EnsureIndexes(MongoCollection);
+			await MongoConfiguration.EnsureIndexesAndCap(MongoCollection);
 
 			var filter = Builders<TEntity>.Filter.Eq("_id", ObjectId.Parse(id));
 
@@ -148,7 +148,7 @@ namespace JohnKnoop.MongoRepository
 
 		public async Task<bool> ModifyOneAsync(Expression<Func<TEntity, bool>> filter, Func<UpdateDefinitionBuilder<TEntity>, UpdateDefinition<TEntity>> update, bool upsert = false)
 		{
-			await MongoConfiguration.EnsureIndexes(MongoCollection);
+			await MongoConfiguration.EnsureIndexesAndCap(MongoCollection);
 
 			var result = await this.MongoCollection.UpdateOneAsync(filter, update(Builders<TEntity>.Update), new UpdateOptions { IsUpsert = upsert }).ConfigureAwait(false);
 			return result.MatchedCount == 1;
@@ -159,7 +159,7 @@ namespace JohnKnoop.MongoRepository
 		/// </summary>
 		public async Task ModifyOneBulkAsync(IEnumerable<ModifyOneCommand<TEntity>> commands)
 		{
-			await MongoConfiguration.EnsureIndexes(MongoCollection);
+			await MongoConfiguration.EnsureIndexesAndCap(MongoCollection);
 
 			var cmds = commands.Select(cmd => new UpdateOneModel<TEntity>(cmd.Filter(Builders<TEntity>.Filter), cmd.Update(Builders<TEntity>.Update))).ToList();
 
@@ -174,7 +174,7 @@ namespace JohnKnoop.MongoRepository
 		/// </summary>
 		public async Task ModifyOneBulkAsync<TDerived>(IEnumerable<ModifyOneCommand<TDerived>> commands) where TDerived : TEntity
 		{
-			await MongoConfiguration.EnsureIndexes(MongoCollection);
+			await MongoConfiguration.EnsureIndexesAndCap(MongoCollection);
 
 			var cmds = commands.Select(cmd => new UpdateOneModel<TDerived>(cmd.Filter(Builders<TDerived>.Filter), cmd.Update(Builders<TDerived>.Update))).ToList();
 
@@ -191,7 +191,7 @@ namespace JohnKnoop.MongoRepository
 			Func<UpdateDefinitionBuilder<TEntity>, UpdateDefinition<TEntity>> update,
 			UpdateOptions options = null)
 		{
-			await MongoConfiguration.EnsureIndexes(MongoCollection);
+			await MongoConfiguration.EnsureIndexesAndCap(MongoCollection);
 
 			await this.MongoCollection.UpdateManyAsync(filter, update(Builders<TEntity>.Update), options).ConfigureAwait(false);
 		}
@@ -276,7 +276,7 @@ namespace JohnKnoop.MongoRepository
 		{
 			if (commands.Any())
 			{
-				await MongoConfiguration.EnsureIndexes(MongoCollection);
+				await MongoConfiguration.EnsureIndexesAndCap(MongoCollection);
 
 				await this.MongoCollection.BulkWriteAsync(commands.Select(cmd => new ReplaceOneModel<TEntity>(cmd.Filter(Builders<TEntity>.Filter), cmd.Replacement)
 				{
@@ -289,7 +289,7 @@ namespace JohnKnoop.MongoRepository
 		{
 			if (entities.Any())
 			{
-				await MongoConfiguration.EnsureIndexes(MongoCollection);
+				await MongoConfiguration.EnsureIndexesAndCap(MongoCollection);
 
 				await this.MongoCollection.InsertManyAsync(entities).ConfigureAwait(false);
 			}

@@ -2,7 +2,7 @@
 
 	<PropertyGroup>
 		<TargetFramework>netstandard1.5</TargetFramework>
-		<Version>0.15.0</Version>
+		<Version>0.16.1</Version>
 		<Description>An easily configurable repository for MongoDB with support for multi-tenancy</Description>
 	</PropertyGroup>
 
