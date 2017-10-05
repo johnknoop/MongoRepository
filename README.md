@@ -94,7 +94,6 @@ var dottedAnimals = await repository
 	.Limit(10)
 	.Project(x => x.Species)
 	.ToListAsync()
-```
 
 ### LINQ
 ```C#
@@ -111,7 +110,6 @@ var dottedAnimals = await repository.Query()
 	.Take(10)
 	.Select(x => x.Species)
 	.ToListAsync()
-```
 
 ## Inserting, updating and deleting
 ### InsertAsync, InsertManyAsync
