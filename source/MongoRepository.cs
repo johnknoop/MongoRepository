@@ -39,12 +39,12 @@ namespace JohnKnoop.MongoRepository
 		public static IList<Type> GetMappedTypes() => MongoConfiguration.GetMappedTypes();
 	}
 
-	public class DatabaseRepository<TEntity> : IRepository<TEntity>
+	public class MongoRepository<TEntity> : IRepository<TEntity>
 	{
 		protected readonly IMongoCollection<TEntity> MongoCollection;
 		private readonly IMongoCollection<DeletedObject> _trash;
 
-		internal DatabaseRepository(IMongoCollection<TEntity> mongoCollection, IMongoCollection<DeletedObject> trash)
+		internal MongoRepository(IMongoCollection<TEntity> mongoCollection, IMongoCollection<DeletedObject> trash)
 		{
 			this.MongoCollection = mongoCollection;
 			this._trash = trash;
@@ -161,7 +161,8 @@ namespace JohnKnoop.MongoRepository
 		{
 			await MongoConfiguration.EnsureIndexesAndCap(MongoCollection);
 
-			var cmds = commands.Select(cmd => new UpdateOneModel<TEntity>(cmd.Filter(Builders<TEntity>.Filter), cmd.Update(Builders<TEntity>.Update))).ToList();
+			var cmds = commands.Select(cmd =>
+				new UpdateOneModel<TEntity>(cmd.Filter(Builders<TEntity>.Filter), cmd.UpdateJson ?? cmd.Update(Builders<TEntity>.Update))).ToList();
 
 			if (cmds.Any())
 			{
@@ -176,7 +177,8 @@ namespace JohnKnoop.MongoRepository
 		{
 			await MongoConfiguration.EnsureIndexesAndCap(MongoCollection);
 
-			var cmds = commands.Select(cmd => new UpdateOneModel<TDerived>(cmd.Filter(Builders<TDerived>.Filter), cmd.Update(Builders<TDerived>.Update))).ToList();
+			var cmds = commands.Select(cmd => 
+			new UpdateOneModel<TDerived>(cmd.Filter(Builders<TDerived>.Filter), cmd.UpdateJson ?? cmd.Update(Builders<TDerived>.Update))).ToList();
 
 			if (cmds.Any())
 			{
@@ -194,6 +196,18 @@ namespace JohnKnoop.MongoRepository
 			await MongoConfiguration.EnsureIndexesAndCap(MongoCollection);
 
 			await this.MongoCollection.UpdateManyAsync(filter, update(Builders<TEntity>.Update), options).ConfigureAwait(false);
+		}
+
+		/// <summary>
+		/// Applies the same update to multiple entities
+		/// </summary>
+		public async Task ModifyManyAsync(Expression<Func<TEntity, bool>> filter,
+			string update,
+			UpdateOptions options = null)
+		{
+			await MongoConfiguration.EnsureIndexesAndCap(MongoCollection);
+
+			await this.MongoCollection.UpdateManyAsync(filter, update, options).ConfigureAwait(false);
 		}
 
 		public async Task<long?> GetCounterValueAsync(string name = null)

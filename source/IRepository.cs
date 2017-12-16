@@ -73,6 +73,10 @@ namespace JohnKnoop.MongoRepository
 			Func<UpdateDefinitionBuilder<TEntity>, UpdateDefinition<TEntity>> update,
 			UpdateOptions options = null);
 
+		Task ModifyManyAsync(Expression<Func<TEntity, bool>> filter,
+			string update,
+			UpdateOptions options = null);
+
 		Task<long> IncrementCounterAsync(string name = null, int incrementBy = 1);
 		Task<long?> GetCounterValueAsync(string name = null);
 		Task ResetCounterAsync(string name = null, long newValue = 1);
@@ -90,6 +94,7 @@ namespace JohnKnoop.MongoRepository
 
 		public Func<FilterDefinitionBuilder<TEntity>, FilterDefinition<TEntity>> Filter { get; set; }
 		public Func<UpdateDefinitionBuilder<TEntity>, UpdateDefinition<TEntity>> Update { get; set; }
+		public string UpdateJson { get; set; }
 	}
 
 	public class ReplaceManyCommand<TEntity>
