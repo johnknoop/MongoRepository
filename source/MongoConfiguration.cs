@@ -54,7 +54,7 @@ namespace JohnKnoop.MongoRepository
 		/// <summary>
 		/// If the entity has an id property with a different name than <c>Id</c>
 		/// </summary>
-        public TypeMappingBuilder<TEnity> WithIdProperty(Expression<Func<TEnity, string>> idProperty)
+		public TypeMappingBuilder<TEnity> WithIdProperty(Expression<Func<TEnity, string>> idProperty)
         {
             Mapping.IdMember = GetPropertyName(idProperty);
             return this;
@@ -164,7 +164,7 @@ namespace JohnKnoop.MongoRepository
 		    return this;
         }
 
-		public DatabaseConfiguration MapAlongWithSubclassesInSameAssebmly<T>() => MapAlongWithSubclassesInSameAssebmly<T>(nameof(T));
+		public DatabaseConfiguration MapAlongWithSubclassesInSameAssebmly<T>() => MapAlongWithSubclassesInSameAssebmly<T>(typeof(T).Name);
 	}
 
 	public class MongoConfigurationBuilder
@@ -199,17 +199,18 @@ namespace JohnKnoop.MongoRepository
 
 	public static class MongoConfiguration
     {
-        private class DatabaseCollectionNamePair
+        private class DatabaseCollectionDefinition
         {
             public string DatabaseName { get; set; }
             public string CollectionName { get; set; }
+			public bool IsPolymorphic { get; set; }
         }
 
 	    private static bool _isConfigured = false;
-        private static Dictionary<Type, DatabaseCollectionNamePair> _collections = new Dictionary<Type, DatabaseCollectionNamePair>();
+        private static Dictionary<Type, DatabaseCollectionDefinition> _collections = new Dictionary<Type, DatabaseCollectionDefinition>();
         private static ILookup<Type, DatabaseIndexDefinition> _indices;
 	    private static HashSet<Type> _globalTypes;
-		private static readonly ConcurrentDictionary<Type, bool> _indexesAndCapEnsured = new ConcurrentDictionary<Type, bool>();
+		private static readonly ConcurrentDictionary<Type, bool> IndexesAndCapEnsured = new ConcurrentDictionary<Type, bool>();
 		private static Dictionary<Type, CappedCollectionConfig> _cappedCollections;
 
 	    internal static void Build(MongoConfigurationBuilder builder)
@@ -233,32 +234,34 @@ namespace JohnKnoop.MongoRepository
 	            IsPolymorphic = false,
 	            Type = y.Key,
 	            Mapping = y.Value
-	        }))).Concat(builder.TenantDatabases.SelectMany(x => x.Value.PolymorpicClasses.Select(y => new
+			}))).Concat(builder.TenantDatabases.SelectMany(x => x.Value.PolymorpicClasses.Select(y => new
 	        {
 	            DatabaseName = WashDatabaseName(x.Key),
 	            IsPerTenantDatabase = true,
 	            IsPolymorphic = true,
 	            Type = y.Key,
 	            Mapping = y.Value
-	        }).Concat(x.Value.SingleClasses.Select(y => new
+			}).Concat(x.Value.SingleClasses.Select(y => new
 	        {
 	            DatabaseName = WashDatabaseName(x.Key),
 	            IsPerTenantDatabase = true,
 	            IsPolymorphic = false,
 	            Type = y.Key,
 	            Mapping = y.Value
-	        })))).ToList();
+			})))).ToList();
 
 	        _cappedCollections = allMappedClasses.Where(x => x.Mapping.Capped).ToDictionary(x => x.Type, x => x.Mapping.CappedCollectionConfig);
-            _collections = allMappedClasses.ToDictionary(x => x.Type, x => new DatabaseCollectionNamePair
+
+            _collections = allMappedClasses.ToDictionary(x => x.Type, x => new DatabaseCollectionDefinition
             {
                 CollectionName = x.Mapping.CollectionName,
-                DatabaseName = x.DatabaseName
+                DatabaseName = x.DatabaseName,
+				IsPolymorphic = x.IsPolymorphic
             });
 
 		    if (!_collections.ContainsKey(typeof(DeletedObject)))
 		    {
-			    _collections[typeof(DeletedObject)] = new DatabaseCollectionNamePair {
+			    _collections[typeof(DeletedObject)] = new DatabaseCollectionDefinition {
 			        CollectionName = "DeletedObjects",
 			        DatabaseName = null // One per database
 			    };
@@ -289,8 +292,8 @@ namespace JohnKnoop.MongoRepository
 			    var bsonClassMap = new BsonClassMap(t.Type);
 
 			    bsonClassMap.AutoMap();
-
-			    if (t.Mapping.IdMember != null)
+				
+				if (t.Mapping.IdMember != null)
 			    {
 				    bsonClassMap.MapIdProperty(t.Mapping.IdMember).SetSerializer(new StringSerializer(BsonType.ObjectId)).SetIdGenerator(new StringObjectIdGenerator());
 			    }
@@ -360,7 +363,7 @@ namespace JohnKnoop.MongoRepository
 		    var mongoCollection = GetMongoCollection<TEntity>(mongoClient, tenantKey);
 		    var trashCollection = GetMongoCollectionInDatabase<DeletedObject>(mongoClient, GetDatabaseName(typeof(TEntity), tenantKey));
 
-		    return new DatabaseRepository<TEntity>(mongoCollection, trashCollection);
+		    return new MongoRepository<TEntity>(mongoCollection, trashCollection);
 		}
 
         private static string WashDatabaseName(string name) {
@@ -393,23 +396,27 @@ namespace JohnKnoop.MongoRepository
 
 	    internal static async Task EnsureIndexesAndCap<TEntity>(IMongoCollection<TEntity> mongoCollection)
 	    {
-		    if (_indexesAndCapEnsured.ContainsKey(typeof(TEntity)))
+			var entityType = typeof(TEntity);
+
+			if (IndexesAndCapEnsured.ContainsKey(entityType))
 		    {
 			    return;
 		    }
 
-            // Create capped collection
+			var collectionDefinition = _collections[entityType];
 
-	        if (_cappedCollections.ContainsKey(typeof(TEntity)) &&
+			// Create capped collection
+
+			if (_cappedCollections.ContainsKey(entityType) &&
 				!(await mongoCollection .Database.ListCollectionsAsync(new ListCollectionsOptions
 				{
 					Filter = new BsonDocument("name", mongoCollection.CollectionNamespace.CollectionName)
 				})).Any()
 			)
 	        {
-	            var capConfig = _cappedCollections[typeof(TEntity)];
+	            var capConfig = _cappedCollections[entityType];
 
-                await mongoCollection.Database.CreateCollectionAsync(_collections[typeof(TEntity)].CollectionName, new CreateCollectionOptions
+				await mongoCollection.Database.CreateCollectionAsync(collectionDefinition.CollectionName, new CreateCollectionOptions
 	            {
 	                Capped = true,
                     MaxDocuments = capConfig.MaxDocuments,
@@ -417,9 +424,9 @@ namespace JohnKnoop.MongoRepository
 				});
 	        }
 
-            // Create index
+			// Create index
 
-            var createIndexOptionses = GetIndicesFor<TEntity>().Select(ix => new CreateIndexModel<TEntity>(
+			var createIndexOptions = GetIndicesFor<TEntity>().Select(ix => new CreateIndexModel<TEntity>(
 				ix.Keys,
 			    new CreateIndexOptions
 			    {
@@ -428,12 +435,17 @@ namespace JohnKnoop.MongoRepository
 			    })
 			).ToList();
 
-		    if (createIndexOptionses.Any())
+			if (collectionDefinition.IsPolymorphic)
+			{
+				createIndexOptions.Add(new CreateIndexModel<TEntity>(Builders<TEntity>.IndexKeys.Ascending("_t")));
+			}
+
+		    if (createIndexOptions.Any())
 		    {
-			    await mongoCollection.Indexes.CreateManyAsync(createIndexOptionses).ConfigureAwait(false);
+			    await mongoCollection.Indexes.CreateManyAsync(createIndexOptions).ConfigureAwait(false);
 		    }
 
-		    _indexesAndCapEnsured.TryAdd(typeof(TEntity), true);
+		    IndexesAndCapEnsured.TryAdd(entityType, true);
 	    }
 
 	    internal static IList<Type> GetMappedTypes() => _collections.Keys.ToList();
