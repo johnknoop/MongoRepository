@@ -5,7 +5,6 @@ using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
 using System.Threading.Tasks;
-using JohnKnoop.MongoRepository.DatabaseNameProviders;
 using MongoDb.Bson.NodaTime;
 using MongoDB.Bson;
 using MongoDB.Bson.Serialization;
@@ -68,6 +67,51 @@ namespace JohnKnoop.MongoRepository
                 MaxDocuments = maxDocuments,
                 MaxSize = maxSize
             };
+
+            return this;
+        }
+
+		public TypeMappingBuilder<TEnity> WithTextIndex(Expression<Func<TEnity, object>> memberExpression, bool sparse = false, double weight = 1, string language = "english") {
+            var names = new Dictionary<string, string>
+            {
+                {GetPropertyName(memberExpression), "text"}
+            };
+
+			var weights = new Dictionary<string, double>
+            {
+                {GetPropertyName(memberExpression), weight}
+            };
+
+            var indexKeys = Newtonsoft.Json.JsonConvert.SerializeObject(names);
+            var weightsDocument = BsonSerializer.Deserialize<BsonDocument>(Newtonsoft.Json.JsonConvert.SerializeObject(weights));
+
+            Mapping.Indices.Add(new DatabaseIndexDefinition {
+                Type = typeof(TEnity),
+                Keys = indexKeys,
+                Sparse = sparse,
+                Weights = weightsDocument,
+				Language = language
+            });
+
+            return this;
+        }
+
+		public TypeMappingBuilder<TEnity> WithTextIndex(Dictionary<Expression<Func<TEnity, object>>, double> memberExpressions, bool sparse = false, string language = "english") {
+            var names =
+                memberExpressions.Keys.Select(GetPropertyName).ToDictionary(x => x, x => "text");
+
+			var weights = memberExpressions.ToDictionary(x => GetPropertyName(x.Key), x => x.Value);
+
+            var indexKeys = Newtonsoft.Json.JsonConvert.SerializeObject(names);
+			var weightsDocument = BsonSerializer.Deserialize<BsonDocument>(Newtonsoft.Json.JsonConvert.SerializeObject(weights));
+
+            Mapping.Indices.Add(new DatabaseIndexDefinition {
+                Type = typeof(TEnity),
+                Keys = indexKeys,
+                Sparse = sparse,
+                Weights = weightsDocument,
+				Language = language
+            });
 
             return this;
         }
@@ -171,7 +215,6 @@ namespace JohnKnoop.MongoRepository
 	{
 		internal Dictionary<string, DatabaseConfiguration> GlobalDatabases { get; private set; } = new Dictionary<string, DatabaseConfiguration>();
 		internal Dictionary<string, DatabaseConfiguration> TenantDatabases { get; private set; } = new Dictionary<string, DatabaseConfiguration>();
-		internal IDatabaseNameProvider DatabaseNameProvider { get; private set; }
 
 		/// <summary>
 		/// These types will be persisted in database-per-assembly-and-tenant style
@@ -431,7 +474,9 @@ namespace JohnKnoop.MongoRepository
 			    new CreateIndexOptions
 			    {
 				    Unique = ix.Unique,
-				    Sparse = ix.Sparse
+				    Sparse = ix.Sparse,
+					Weights = ix.Weights,
+					DefaultLanguage = ix.Language
 			    })
 			).ToList();
 
@@ -486,7 +531,9 @@ namespace JohnKnoop.MongoRepository
         public string Keys { get; set; }
         public bool Unique { get; set; }
         public bool Sparse { get; set; }
-    }
+		public BsonDocument Weights { get; set; }
+		public string Language { get; set; }
+	}
 
 	public static class MongoClientExtensions
 	{

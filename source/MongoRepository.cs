@@ -90,12 +90,12 @@ namespace JohnKnoop.MongoRepository
 			return await this.MongoCollection.ReplaceOneAsync(filter, entity, new UpdateOptions { IsUpsert = upsert }).ConfigureAwait(false);
 		}
 
-		public async Task<TReturnProjection> FindOneAndModifyAsync<TReturnProjection>(Expression<Func<TEntity, bool>> filter, Func<UpdateDefinitionBuilder<TEntity>, UpdateDefinition<TEntity>> update, Expression<Func<TEntity, TReturnProjection>> returnProjection, ReturnedDocumentState returnedDocumentState = ReturnedDocumentState.BeforeUpdate, bool upsert = false)
+		public async Task<TReturnProjection> FindOneAndUpdateAsync<TReturnProjection>(Expression<Func<TEntity, bool>> filter, Func<UpdateDefinitionBuilder<TEntity>, UpdateDefinition<TEntity>> update, Expression<Func<TEntity, TReturnProjection>> returnProjection, ReturnedDocumentState returnedDocumentState = ReturnedDocumentState.BeforeUpdate, bool upsert = false)
 		{
-			return await FindOneAndModifyAsync(filter, update, Builders<TEntity>.Projection.Expression(returnProjection), returnedDocumentState, upsert);
+			return await FindOneAndUpdateAsync(filter, update, Builders<TEntity>.Projection.Expression(returnProjection), returnedDocumentState, upsert);
 		}
 
-		public async Task<TReturnProjection> FindOneAndModifyAsync<TReturnProjection>(Expression<Func<TEntity, bool>> filter, Func<UpdateDefinitionBuilder<TEntity>, UpdateDefinition<TEntity>> update, ProjectionDefinition<TEntity, TReturnProjection> returnProjection, ReturnedDocumentState returnedDocumentState = ReturnedDocumentState.AfterUpdate, bool upsert = false)
+		public async Task<TReturnProjection> FindOneAndUpdateAsync<TReturnProjection>(Expression<Func<TEntity, bool>> filter, Func<UpdateDefinitionBuilder<TEntity>, UpdateDefinition<TEntity>> update, ProjectionDefinition<TEntity, TReturnProjection> returnProjection, ReturnedDocumentState returnedDocumentState = ReturnedDocumentState.AfterUpdate, bool upsert = false)
 		{
 			await MongoConfiguration.EnsureIndexesAndCap(MongoCollection);
 
@@ -114,7 +114,7 @@ namespace JohnKnoop.MongoRepository
 				}).ConfigureAwait(false);
 		}
 
-		public async Task<bool> ModifyOneAsync<TDerived>(string id, Func<UpdateDefinitionBuilder<TDerived>, UpdateDefinition<TDerived>> update, bool upsert = false) where TDerived : TEntity
+		public async Task<bool> UpdateOneAsync<TDerived>(string id, Func<UpdateDefinitionBuilder<TDerived>, UpdateDefinition<TDerived>> update, bool upsert = false) where TDerived : TEntity
 		{
 			if (id == null) throw new ArgumentNullException(nameof(id));
 
@@ -126,7 +126,7 @@ namespace JohnKnoop.MongoRepository
 			return result.MatchedCount == 1;
 		}
 
-		public async Task<bool> ModifyOneAsync<TDerived>(Expression<Func<TDerived, bool>> filter, Func<UpdateDefinitionBuilder<TDerived>, UpdateDefinition<TDerived>> update, bool upsert = false) where TDerived : TEntity
+		public async Task<bool> UpdateOneAsync<TDerived>(Expression<Func<TDerived, bool>> filter, Func<UpdateDefinitionBuilder<TDerived>, UpdateDefinition<TDerived>> update, bool upsert = false) where TDerived : TEntity
 		{
 			await MongoConfiguration.EnsureIndexesAndCap(MongoCollection);
 
@@ -134,7 +134,7 @@ namespace JohnKnoop.MongoRepository
 			return result.MatchedCount == 1;
 		}
 
-		public async Task<bool> ModifyOneAsync(string id, Func<UpdateDefinitionBuilder<TEntity>, UpdateDefinition<TEntity>> update, bool upsert = false)
+		public async Task<bool> UpdateOneAsync(string id, Func<UpdateDefinitionBuilder<TEntity>, UpdateDefinition<TEntity>> update, bool upsert = false)
 		{
 			if (id == null) throw new ArgumentNullException(nameof(id));
 
@@ -146,7 +146,7 @@ namespace JohnKnoop.MongoRepository
 			return result.MatchedCount == 1;
 		}
 
-		public async Task<bool> ModifyOneAsync(Expression<Func<TEntity, bool>> filter, Func<UpdateDefinitionBuilder<TEntity>, UpdateDefinition<TEntity>> update, bool upsert = false)
+		public async Task<bool> UpdateOneAsync(Expression<Func<TEntity, bool>> filter, Func<UpdateDefinitionBuilder<TEntity>, UpdateDefinition<TEntity>> update, bool upsert = false)
 		{
 			await MongoConfiguration.EnsureIndexesAndCap(MongoCollection);
 
@@ -154,42 +154,62 @@ namespace JohnKnoop.MongoRepository
 			return result.MatchedCount == 1;
 		}
 
-		/// <summary>
-		/// Executes multiple update operations in one batch
-		/// </summary>
-		public async Task ModifyOneBulkAsync(IEnumerable<ModifyOneCommand<TEntity>> commands)
+		public async Task<bool> UpdateOneAsync(string filter, string update, bool upsert = false)
 		{
 			await MongoConfiguration.EnsureIndexesAndCap(MongoCollection);
 
-			var cmds = commands.Select(cmd =>
-				new UpdateOneModel<TEntity>(cmd.Filter(Builders<TEntity>.Filter), cmd.UpdateJson ?? cmd.Update(Builders<TEntity>.Update))).ToList();
-
-			if (cmds.Any())
-			{
-				await this.MongoCollection.BulkWriteAsync(cmds).ConfigureAwait(false);
-			}
+			var result = await this.MongoCollection.UpdateOneAsync(filter, update, new UpdateOptions { IsUpsert = upsert }).ConfigureAwait(false);
+			return result.MatchedCount == 1;
 		}
 
 		/// <summary>
 		/// Executes multiple update operations in one batch
 		/// </summary>
-		public async Task ModifyOneBulkAsync<TDerived>(IEnumerable<ModifyOneCommand<TDerived>> commands) where TDerived : TEntity
+		public async Task<BulkWriteResult<TEntity>> UpdateOneBulkAsync(IEnumerable<UpdateOneCommand<TEntity>> commands)
+		{
+			await MongoConfiguration.EnsureIndexesAndCap(MongoCollection);
+
+			var cmds = commands.Select(cmd =>
+				new UpdateOneModel<TEntity>(cmd.Filter(Builders<TEntity>.Filter), cmd.UpdateJson ?? cmd.Update(Builders<TEntity>.Update))
+				{
+					IsUpsert = cmd.IsUpsert
+				}).ToList();
+
+			if (!cmds.Any())
+			{
+				return null;
+			}
+
+			var result = await this.MongoCollection.BulkWriteAsync(cmds).ConfigureAwait(false);
+			return result;
+		}
+
+		/// <summary>
+		/// Executes multiple update operations in one batch
+		/// </summary>
+		public async Task<BulkWriteResult<TDerived>> UpdateOneBulkAsync<TDerived>(IEnumerable<UpdateOneCommand<TDerived>> commands) where TDerived : TEntity
 		{
 			await MongoConfiguration.EnsureIndexesAndCap(MongoCollection);
 
 			var cmds = commands.Select(cmd => 
-			new UpdateOneModel<TDerived>(cmd.Filter(Builders<TDerived>.Filter), cmd.UpdateJson ?? cmd.Update(Builders<TDerived>.Update))).ToList();
+			new UpdateOneModel<TDerived>(cmd.Filter(Builders<TDerived>.Filter), cmd.UpdateJson ?? cmd.Update(Builders<TDerived>.Update))
+				{
+					IsUpsert = cmd.IsUpsert
+				}).ToList();
 
 			if (cmds.Any())
 			{
-				await this.MongoCollection.OfType<TDerived>().BulkWriteAsync(cmds).ConfigureAwait(false); 
+				var result = await this.MongoCollection.OfType<TDerived>().BulkWriteAsync(cmds).ConfigureAwait(false);
+				return result;
 			}
+
+			return null;
 		}
 
 		/// <summary>
 		/// Applies the same update to multiple entities
 		/// </summary>
-		public async Task ModifyManyAsync(Expression<Func<TEntity, bool>> filter,
+		public async Task UpdateManyAsync(Expression<Func<TEntity, bool>> filter,
 			Func<UpdateDefinitionBuilder<TEntity>, UpdateDefinition<TEntity>> update,
 			UpdateOptions options = null)
 		{
@@ -201,7 +221,7 @@ namespace JohnKnoop.MongoRepository
 		/// <summary>
 		/// Applies the same update to multiple entities
 		/// </summary>
-		public async Task ModifyManyAsync(Expression<Func<TEntity, bool>> filter,
+		public async Task UpdateManyAsync(Expression<Func<TEntity, bool>> filter,
 			string update,
 			UpdateOptions options = null)
 		{
@@ -309,14 +329,12 @@ namespace JohnKnoop.MongoRepository
 			}
 		}
 
+		public async Task InsertManyAsync(params TEntity[] entities) =>
+			await InsertManyAsync((IEnumerable<TEntity>)entities);
+
 		public IFindFluent<TEntity, TEntity> GetAll()
 		{
 			return this.MongoCollection.Find(FilterDefinition<TEntity>.Empty);
-		}
-
-		public IFindFluent<TEntity, TEntity> Find(Expression<Func<TEntity, bool>> filterExpression)
-		{
-			return this.MongoCollection.Find(filterExpression);
 		}
 
 		public async Task DeleteManyAsync<TDerived>(Expression<Func<TDerived, bool>> filter, bool softDelete = false) where TDerived : TEntity
@@ -385,9 +403,55 @@ namespace JohnKnoop.MongoRepository
 			await this.MongoCollection.DeleteManyAsync(filter).ConfigureAwait(false);
 		}
 
-		public IFindFluent<TEntity, TEntity> Find(Expression<Func<TEntity, object>> property, string regexPattern)
+		public IFindFluent<TEntity, TEntity> TextSearch(string text)
 		{
-			return this.MongoCollection.Find(Builders<TEntity>.Filter.Regex(property, regexPattern));
+			return this.MongoCollection.Find(Builders<TEntity>.Filter.Text(text));
+		}
+
+		public IFindFluent<TDerivedEntity, TDerivedEntity> TextSearch<TDerivedEntity>(string text) where TDerivedEntity : TEntity
+		{
+			return this.MongoCollection.OfType<TDerivedEntity>().Find(Builders<TDerivedEntity>.Filter.Text(text));
+		}
+
+		public IFindFluent<TDerivedEntity, TDerivedEntity> Find<TDerivedEntity>(FilterDefinition<TDerivedEntity> filter) where TDerivedEntity : TEntity
+		{
+			return this.MongoCollection.OfType<TDerivedEntity>().Find(filter);
+		}
+
+		public IFindFluent<TEntity, TEntity> Find(FilterDefinition<TEntity> filter)
+		{
+			return this.MongoCollection.Find(filter);
+		}
+
+		public IFindFluent<TEntity, TEntity> Find(Expression<Func<TEntity, bool>> filterExpression)
+		{
+			return this.MongoCollection.Find(filterExpression);
+		}
+
+		public IFindFluent<TEntity, TEntity> Find(FieldDefinition<TEntity> property, string regexPattern, string regexOptions = "i")
+		{
+			return this.MongoCollection.Find(Builders<TEntity>.Filter.Regex(property, new BsonRegularExpression(regexPattern, regexOptions)));
+		}
+
+		public IFindFluent<TEntity, TEntity> Find(Expression<Func<TEntity, object>> property, string regexPattern, string regexOptions = "i")
+		{
+			return this.MongoCollection.Find(Builders<TEntity>.Filter.Regex(property, new BsonRegularExpression(regexPattern, regexOptions)));
+		}
+
+		public IFindFluent<TEntity, TEntity> Find(IEnumerable<FieldDefinition<TEntity>> properties, string regexPattern, string regexOptions = "i")
+		{
+			var filters = properties.Select(p =>
+				Builders<TEntity>.Filter.Regex(p, new BsonRegularExpression(regexPattern, regexOptions)));
+
+			return this.MongoCollection.Find(Builders<TEntity>.Filter.Or(filters));
+		}
+
+		public IFindFluent<TEntity, TEntity> Find(IEnumerable<Expression<Func<TEntity, object>>> properties, string regexPattern, string regexOptions = "i")
+		{
+			var filters = properties.Select(p =>
+				Builders<TEntity>.Filter.Regex(p, new BsonRegularExpression(regexPattern, regexOptions)));
+
+			return this.MongoCollection.Find(Builders<TEntity>.Filter.Or(filters));
 		}
 
 		public IFindFluent<TDerivedEntity, TDerivedEntity> Find<TDerivedEntity>(Expression<Func<TDerivedEntity, bool>> filterExpression) where TDerivedEntity : TEntity
