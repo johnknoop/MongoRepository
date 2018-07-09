@@ -2,3 +2,11 @@ source/bin/
 source/obj/
 
 source/JohnKnoop\.MongoRepository\.csproj\.user
+
+JohnKnoop\.MongoRepository/source/\.vs/
+
+JohnKnoop\.MongoRepository/source/obj/
+
+JohnKnoop\.MongoRepository\.NodaTime/bin/
+
+JohnKnoop\.MongoRepository\.NodaTime/obj/
