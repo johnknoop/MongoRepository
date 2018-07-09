@@ -1,11 +1,17 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>netstandard2.0</TargetFramework>
+    <TargetFramework>netstandard1.6</TargetFramework>
+    <PackageId>JohnKnoop.MongoRepository.NodaTime</PackageId>
+    <Authors>John Knoop</Authors>
+    <Company />
+    <Description>Adds mapping for all the NodaTime types</Description>
+    <PackageProjectUrl>https://github.com/johnknoop/MongoRepository</PackageProjectUrl>
+    <PackageTags>mongodb repository nodatime</PackageTags>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="JohnKnoop.MongoRepository" Version="1.2.0" />
+    <PackageReference Include="JohnKnoop.MongoRepository" Version="1.3.0-beta7" />
     <PackageReference Include="MongoDb.Bson.NodaTime" Version="2.0.0" />
   </ItemGroup>
 

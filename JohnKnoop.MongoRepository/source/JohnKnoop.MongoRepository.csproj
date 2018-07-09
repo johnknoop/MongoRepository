@@ -2,7 +2,7 @@
 
 	<PropertyGroup>
 		<TargetFramework>netstandard1.5</TargetFramework>
-		<Version>1.3.0-beta6</Version>
+		<Version>1.3.0</Version>
 		<Description>An easily configurable repository for MongoDB with support for multi-tenancy</Description>
 		<PackageProjectUrl>https://github.com/johnknoop/MongoRepository</PackageProjectUrl>
 		<PackageTags>repository mongodb multitenant</PackageTags>

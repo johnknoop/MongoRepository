@@ -244,6 +244,27 @@ namespace JohnKnoop.MongoRepository
 		{
 			MongoConfiguration.Build(this, _plugins);
 		}
+
+		public MongoConfigurationBuilder StoreDecimalsAsWholeCents()
+		{
+			_plugins.Add(_ =>
+			{
+				BsonSerializer.RegisterSerializer(typeof(decimal), new DecimalToWholeCentsSerializer());
+			});
+
+			return this;
+		}
+
+		public MongoConfigurationBuilder StoreDecimalsAs128BitNumberDecimal()
+		{
+			_plugins.Add(_ =>
+			{
+				BsonSerializer.RegisterSerializer(typeof(decimal), new DecimalSerializer(BsonType.Decimal128));
+				BsonSerializer.RegisterSerializer(typeof(decimal?), new NullableSerializer<decimal>(new DecimalSerializer(BsonType.Decimal128)));
+			});
+
+			return this;
+		}
 	}
 
 	public static class MongoConfiguration
@@ -365,8 +386,6 @@ namespace JohnKnoop.MongoRepository
 				    }
 			    }
 			}
-
-			BsonSerializer.RegisterSerializer(typeof(decimal), new DecimalToWholeCentsSerializer());
 		    
             foreach (var plugin in plugins)
             {
