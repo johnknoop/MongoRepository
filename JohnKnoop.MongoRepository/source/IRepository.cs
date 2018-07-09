@@ -93,6 +93,9 @@ namespace JohnKnoop.MongoRepository
 		Task<bool> UpdateOneAsync(string filter, string update, bool upsert = false);
 		IFindFluent<TEntity, TEntity> TextSearch(string text);
 		IFindFluent<TDerivedEntity, TDerivedEntity> TextSearch<TDerivedEntity>(string text) where TDerivedEntity : TEntity;
+
+		Task<IClientSessionHandle> StartSessionAsync(ClientSessionOptions options = null);
+		Task<IClientSessionHandle> StartTransactionAsync(ClientSessionOptions sessionOptions = null, TransactionOptions transactionOptions = null);
 	}
 
 	public class UpdateOneCommand<TEntity>

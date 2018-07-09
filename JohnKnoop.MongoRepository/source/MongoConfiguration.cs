@@ -423,7 +423,34 @@ namespace JohnKnoop.MongoRepository
             return new string(name.Where(letter => letter >= 97 && letter <= 122 || letter >= 65 && letter <= 90).ToArray());
         }
 
-        private static string GetDatabaseName(Type entityType, string tenantKey = null)
+		private static readonly Dictionary<string, IList<string>> DatabaseNamesPerTenant = new Dictionary<string, IList<string>>();
+		internal static IList<string> GetDatabaseNames(string tenantKey = null)
+		{
+			if (!_isConfigured)
+			{
+				throw new InvalidOperationException("Configuration not built");
+			}
+
+			if (DatabaseNamesPerTenant.ContainsKey(tenantKey ?? "global"))
+			{
+				return DatabaseNamesPerTenant[tenantKey ?? "global"];
+			}
+
+			DatabaseNamesPerTenant[tenantKey ?? "global"] = _collections
+				.Select(x => new
+				{
+					IsGlobal = _globalTypes.Contains(x.Key),
+					DatabaseName = x.Value.DatabaseName
+				})
+				.Where(x => tenantKey == null ? x.IsGlobal : !x.IsGlobal)
+				.GroupBy(x => new {x.DatabaseName, x.IsGlobal})
+				.Select(x => x.Key.IsGlobal ? x.Key.DatabaseName : $"{tenantKey}_{x.Key.DatabaseName}")
+				.ToList();
+
+			return DatabaseNamesPerTenant[tenantKey ?? "global"];
+		}
+
+        internal static string GetDatabaseName(Type entityType, string tenantKey = null)
         {
 	        if (entityType == null) throw new ArgumentNullException(nameof(entityType));
 

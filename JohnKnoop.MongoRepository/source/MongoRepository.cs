@@ -36,7 +36,13 @@ namespace JohnKnoop.MongoRepository
 			return new MongoConfigurationBuilder();
 		}
 
+		public static IList<string> GetDatabaseNames(string tenantKey = null) =>
+			MongoConfiguration.GetDatabaseNames(tenantKey);
+
 		public static IList<Type> GetMappedTypes() => MongoConfiguration.GetMappedTypes();
+
+		public static string GetDatabaseName(Type entityType, string tenantKey = null) =>
+			MongoConfiguration.GetDatabaseName(entityType, tenantKey);
 	}
 
 	public class MongoRepository<TEntity> : IRepository<TEntity>
@@ -411,6 +417,18 @@ namespace JohnKnoop.MongoRepository
 		public IFindFluent<TDerivedEntity, TDerivedEntity> TextSearch<TDerivedEntity>(string text) where TDerivedEntity : TEntity
 		{
 			return this.MongoCollection.OfType<TDerivedEntity>().Find(Builders<TDerivedEntity>.Filter.Text(text));
+		}
+
+		public Task<IClientSessionHandle> StartSessionAsync(ClientSessionOptions options = null)
+		{
+			return MongoCollection.Database.Client.StartSessionAsync(options);
+		}
+
+		public async Task<IClientSessionHandle> StartTransactionAsync(ClientSessionOptions sessionOptions = null, TransactionOptions transactionOptions = null)
+		{
+			var session = await MongoCollection.Database.Client.StartSessionAsync(sessionOptions);
+			session.StartTransaction(transactionOptions);
+			return session;
 		}
 
 		public IFindFluent<TDerivedEntity, TDerivedEntity> Find<TDerivedEntity>(FilterDefinition<TDerivedEntity> filter) where TDerivedEntity : TEntity
