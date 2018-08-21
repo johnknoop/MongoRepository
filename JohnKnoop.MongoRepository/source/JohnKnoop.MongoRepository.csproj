@@ -10,11 +10,9 @@
 
 	<ItemGroup>
 		<PackageReference Include="MongoDB.Bson" version="2.7.0" />
-		<PackageReference Include="MongoDb.Bson.NodaTime" Version="2.0.0" />
 		<PackageReference Include="MongoDB.Driver" version="2.7.0" />
 		<PackageReference Include="MongoDB.Driver.Core" version="2.7.0" />
 		<PackageReference Include="Newtonsoft.Json" version="11.0.2" />
-		<PackageReference Include="NodaTime" version="2.3.0" />
 		<PackageReference Include="System.Runtime" Version="4.3.0" />
 	</ItemGroup>
 

@@ -1,7 +1,6 @@
-﻿using JohnKnoop.MongoRepository;
-using MongoDb.Bson.NodaTime;
+﻿using MongoDb.Bson.NodaTime;
 
-namespace MongoRepository.NodaTime
+namespace JohnKnoop.MongoRepository.NodaTime
 {
     public static class MongoConfigurationBuilderExtensions
     {

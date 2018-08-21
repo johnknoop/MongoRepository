@@ -8,6 +8,8 @@
     <Description>Adds mapping for all the NodaTime types</Description>
     <PackageProjectUrl>https://github.com/johnknoop/MongoRepository</PackageProjectUrl>
     <PackageTags>mongodb repository nodatime</PackageTags>
+    <RootNamespace>JohnKnoop.MongoRepository.NodaTime</RootNamespace>
+    <AssemblyName>JohnKnoop.MongoRepository.NodaTime</AssemblyName>
   </PropertyGroup>
 
   <ItemGroup>
