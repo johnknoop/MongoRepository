@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
@@ -54,7 +54,7 @@ namespace JohnKnoop.MongoRepository
 		/// </summary>
 		public TypeMappingBuilder<TEnity> WithIdProperty(Expression<Func<TEnity, string>> idProperty)
         {
-            Mapping.IdMember = GetPropertyName(idProperty);
+            Mapping.IdMember = PropertyNameExtractor.GetPropertyName(idProperty);
             return this;
         }
 
@@ -73,12 +73,12 @@ namespace JohnKnoop.MongoRepository
 		public TypeMappingBuilder<TEnity> WithTextIndex(Expression<Func<TEnity, object>> memberExpression, bool sparse = false, double weight = 1, string language = "english") {
             var names = new Dictionary<string, string>
             {
-                {GetPropertyName(memberExpression), "text"}
+                {PropertyNameExtractor.GetPropertyName(memberExpression), "text"}
             };
 
 			var weights = new Dictionary<string, double>
             {
-                {GetPropertyName(memberExpression), weight}
+                {PropertyNameExtractor.GetPropertyName(memberExpression), weight}
             };
 
             var indexKeys = Newtonsoft.Json.JsonConvert.SerializeObject(names);
@@ -97,9 +97,9 @@ namespace JohnKnoop.MongoRepository
 
 		public TypeMappingBuilder<TEnity> WithTextIndex(Dictionary<Expression<Func<TEnity, object>>, double> memberExpressions, bool sparse = false, string language = "english") {
             var names =
-                memberExpressions.Keys.Select(GetPropertyName).ToDictionary(x => x, x => "text");
+                memberExpressions.Keys.Select(PropertyNameExtractor.GetPropertyName).ToDictionary(x => x, x => "text");
 
-			var weights = memberExpressions.ToDictionary(x => GetPropertyName(x.Key), x => x.Value);
+			var weights = memberExpressions.ToDictionary(x => PropertyNameExtractor.GetPropertyName(x.Key), x => x.Value);
 
             var indexKeys = Newtonsoft.Json.JsonConvert.SerializeObject(names);
 			var weightsDocument = BsonSerializer.Deserialize<BsonDocument>(Newtonsoft.Json.JsonConvert.SerializeObject(weights));
@@ -118,7 +118,7 @@ namespace JohnKnoop.MongoRepository
         public TypeMappingBuilder<TEnity> WithIndex(Expression<Func<TEnity, object>> memberExpression, bool unique = false, bool sparse = false) {
             var names = new Dictionary<string, int>
             {
-                {GetPropertyName(memberExpression), 1}
+                {PropertyNameExtractor.GetPropertyName(memberExpression), 1}
             };
 
             var indexKeys = Newtonsoft.Json.JsonConvert.SerializeObject(names);
@@ -135,7 +135,7 @@ namespace JohnKnoop.MongoRepository
 
         public TypeMappingBuilder<TEnity> WithIndex(IEnumerable<Expression<Func<TEnity, object>>> memberExpressions, bool unique = false, bool sparse = false) {
             var names =
-                memberExpressions.Select(GetPropertyName).ToDictionary(x => x, x => 1);
+                memberExpressions.Select(PropertyNameExtractor.GetPropertyName).ToDictionary(x => x, x => 1);
 
             var indexKeys = Newtonsoft.Json.JsonConvert.SerializeObject(names);
 
@@ -147,36 +147,6 @@ namespace JohnKnoop.MongoRepository
             });
 
             return this;
-        }
-
-        private string GetPropertyName<TSource>(Expression<Func<TSource, object>> memberExpression) {
-            var expression = memberExpression.Body as UnaryExpression;
-            string propertyName;
-
-            if (expression == null) {
-                var memExpr = memberExpression.Body as MemberExpression;
-                propertyName = memExpr.Member.Name;
-            } else {
-                var property = expression.Operand as MemberExpression;
-                propertyName = property.Member.Name;
-            }
-
-            return propertyName;
-        }
-
-        private string GetPropertyName<TSource>(Expression<Func<TSource, string>> memberExpression) {
-            var expression = memberExpression.Body as UnaryExpression;
-            string propertyName;
-
-            if (expression == null) {
-                var memExpr = memberExpression.Body as MemberExpression;
-                propertyName = memExpr.Member.Name;
-            } else {
-                var property = expression.Operand as MemberExpression;
-                propertyName = property.Member.Name;
-            }
-
-            return propertyName;
         }
     }
 
