@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
@@ -409,13 +409,15 @@ namespace JohnKnoop.MongoRepository
 			await this.MongoCollection.DeleteManyAsync(filter).ConfigureAwait(false);
 		}
 
-		public IFindFluent<TEntity, TEntity> TextSearch(string text)
+		public async Task<IFindFluent<TEntity, TEntity>> TextSearch(string text)
 		{
+			await MongoConfiguration.EnsureIndexesAndCap(MongoCollection).ConfigureAwait(false);
 			return this.MongoCollection.Find(Builders<TEntity>.Filter.Text(text));
 		}
 
-		public IFindFluent<TDerivedEntity, TDerivedEntity> TextSearch<TDerivedEntity>(string text) where TDerivedEntity : TEntity
+		public async Task<IFindFluent<TDerivedEntity, TDerivedEntity>> TextSearch<TDerivedEntity>(string text) where TDerivedEntity : TEntity
 		{
+			await MongoConfiguration.EnsureIndexesAndCap(MongoCollection).ConfigureAwait(false);
 			return this.MongoCollection.OfType<TDerivedEntity>().Find(Builders<TDerivedEntity>.Filter.Text(text));
 		}
 

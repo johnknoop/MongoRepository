@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq.Expressions;
 using System.Threading;
@@ -92,8 +92,8 @@ namespace JohnKnoop.MongoRepository
 		Task<long?> GetCounterValueAsync(string name = null);
 		Task ResetCounterAsync(string name = null, long newValue = 1);
 		Task<bool> UpdateOneAsync(string filter, string update, bool upsert = false);
-		IFindFluent<TEntity, TEntity> TextSearch(string text);
-		IFindFluent<TDerivedEntity, TDerivedEntity> TextSearch<TDerivedEntity>(string text) where TDerivedEntity : TEntity;
+		Task<IFindFluent<TEntity, TEntity>> TextSearch(string text);
+		Task<IFindFluent<TDerivedEntity, TDerivedEntity>> TextSearch<TDerivedEntity>(string text) where TDerivedEntity : TEntity;
 
 		Task<IClientSessionHandle> StartSessionAsync(ClientSessionOptions options = null);
 		Task<Transaction> StartTransactionAsync(ClientSessionOptions sessionOptions = null, TransactionOptions transactionOptions = null);
