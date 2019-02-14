@@ -488,8 +488,8 @@ namespace JohnKnoop.MongoRepository
 	            {
 	                Capped = true,
                     MaxDocuments = capConfig.MaxDocuments,
-                    MaxSize = capConfig.MaxSize ?? 1000000000000 // One terabyte
-				});
+                    MaxSize = capConfig.MaxSize ?? 1_000_000_000_000 // One terabyte
+				}).ConfigureAwait(false);
 	        }
 
 			// Create index
@@ -512,6 +512,7 @@ namespace JohnKnoop.MongoRepository
 
 		    if (createIndexOptions.Any())
 		    {
+				// Collection will be created if it doesn't already exist
 			    await mongoCollection.Indexes.CreateManyAsync(createIndexOptions).ConfigureAwait(false);
 		    }
 
