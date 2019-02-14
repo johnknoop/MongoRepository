@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
@@ -424,11 +424,11 @@ namespace JohnKnoop.MongoRepository
 			return MongoCollection.Database.Client.StartSessionAsync(options);
 		}
 
-		public async Task<IClientSessionHandle> StartTransactionAsync(ClientSessionOptions sessionOptions = null, TransactionOptions transactionOptions = null)
+		public async Task<Transaction> StartTransactionAsync(ClientSessionOptions sessionOptions = null, TransactionOptions transactionOptions = null)
 		{
 			var session = await MongoCollection.Database.Client.StartSessionAsync(sessionOptions);
 			session.StartTransaction(transactionOptions);
-			return session;
+			return new Transaction(session);
 		}
 
 		public IFindFluent<TDerivedEntity, TDerivedEntity> Find<TDerivedEntity>(FilterDefinition<TDerivedEntity> filter) where TDerivedEntity : TEntity

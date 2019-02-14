@@ -1,6 +1,7 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq.Expressions;
+using System.Threading;
 using System.Threading.Tasks;
 using MongoDB.Driver;
 using MongoDB.Driver.Linq;
@@ -95,7 +96,32 @@ namespace JohnKnoop.MongoRepository
 		IFindFluent<TDerivedEntity, TDerivedEntity> TextSearch<TDerivedEntity>(string text) where TDerivedEntity : TEntity;
 
 		Task<IClientSessionHandle> StartSessionAsync(ClientSessionOptions options = null);
-		Task<IClientSessionHandle> StartTransactionAsync(ClientSessionOptions sessionOptions = null, TransactionOptions transactionOptions = null);
+		Task<Transaction> StartTransactionAsync(ClientSessionOptions sessionOptions = null, TransactionOptions transactionOptions = null);
+	}
+
+	public class Transaction : IDisposable
+	{
+		private readonly IClientSessionHandle _session;
+
+		public Transaction(IClientSessionHandle session)
+		{
+			_session = session;
+		}
+
+		public async Task CommitAsync(CancellationToken cancellation = default)
+		{
+			await _session.CommitTransactionAsync(cancellation);
+		}
+
+		public async Task AbortAsync(CancellationToken cancellation = default)
+		{
+			await _session.AbortTransactionAsync(cancellation);
+		}
+
+		public void Dispose()
+		{
+			_session.Dispose();
+		}
 	}
 
 	public class UpdateOneCommand<TEntity>
