@@ -11,3 +11,5 @@ JohnKnoop\.MongoRepository/source/obj/
 JohnKnoop\.MongoRepository\.NodaTime/bin/
 
 JohnKnoop\.MongoRepository\.NodaTime/obj/
+
+*.DotSettings
