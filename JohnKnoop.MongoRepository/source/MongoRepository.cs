@@ -9,18 +9,16 @@ using MongoDB.Driver.Linq;
 
 namespace JohnKnoop.MongoRepository
 {
-	public class DeletedObject
+	internal class DeletedObject<TEntity> : SoftDeletedEntity<TEntity>
 	{
-		public DeletedObject(object content)
+		public DeletedObject(TEntity entity, string sourceCollectionName, DateTime timestampDeletedUtc) : base(entity, timestampDeletedUtc)
 		{
-			Content = content;
-		    Type = content.GetType();
-            TypeName = Type.Name;
+			SourceCollectionName = sourceCollectionName;
+			TypeName = entity.GetType().Name;
 		}
 
 		public string TypeName { get; private set; }
-		public dynamic Content { get; private set; }
-        internal Type Type { get; private set; }
+		public string SourceCollectionName { get; private set; }
 	}
 
 	public enum ReturnedDocumentState
@@ -48,9 +46,9 @@ namespace JohnKnoop.MongoRepository
 	public class MongoRepository<TEntity> : IRepository<TEntity>
 	{
 		protected readonly IMongoCollection<TEntity> MongoCollection;
-		private readonly IMongoCollection<DeletedObject> _trash;
+		private readonly IMongoCollection<SoftDeletedEntity<TEntity>> _trash;
 
-		internal MongoRepository(IMongoCollection<TEntity> mongoCollection, IMongoCollection<DeletedObject> trash)
+		internal MongoRepository(IMongoCollection<TEntity> mongoCollection, IMongoCollection<SoftDeletedEntity<TEntity>> trash)
 		{
 			this.MongoCollection = mongoCollection;
 			this._trash = trash;
@@ -62,9 +60,25 @@ namespace JohnKnoop.MongoRepository
 			await this.MongoCollection.FindOneAndUpdateAsync(filterExpression, updateDefinition).ConfigureAwait(false);
 		}
 
-		public async Task AddToTrash<TObject>(TObject objectToTrash)
+		private async Task AddToTrashAsync(TEntity objectToTrash)
 		{
-			await this._trash.InsertOneAsync(new DeletedObject(objectToTrash)).ConfigureAwait(false);
+			await this._trash.InsertOneAsync(new DeletedObject<TEntity>(objectToTrash, this.MongoCollection.CollectionNamespace.CollectionName, DateTime.UtcNow)).ConfigureAwait(false);
+		}
+
+		public async Task<TEntity> GetFromTrashAsync(Expression<Func<SoftDeletedEntity<TEntity>, bool>> filter)
+		{
+			if (filter == null) throw new ArgumentNullException(nameof(filter));
+
+			var deletedObject = await _trash.OfType<SoftDeletedEntity<TEntity>>().Find(filter).SingleOrDefaultAsync();
+
+			if (deletedObject == null)
+			{
+				throw new Exception($"No object in the trash matches filter");
+			}
+
+			await this.InsertAsync(deletedObject.Entity);
+
+			return deletedObject.Entity;
 		}
 
 		public async Task InsertAsync(TEntity entity)
@@ -76,6 +90,19 @@ namespace JohnKnoop.MongoRepository
 		public IAggregateFluent<TEntity> Aggregate(AggregateOptions options = null)
 		{
 			return this.MongoCollection.Aggregate(options);
+		}
+
+		public async Task<IList<SoftDeletedEntity>> ListTrashAsync(int? offset = null, int? limit = null)
+		{
+			var result = await this._trash.Find(x => true)
+				.Skip(offset)
+				.Limit(limit)
+				.As<DeletedObject<TEntity>>()
+				.ToListAsync()
+				.ConfigureAwait(false);
+
+			return result.Select(x => new SoftDeletedEntity(x.TypeName, x.SourceCollectionName, x.TimestampDeletedUtc))
+				.ToList();
 		}
 
 		public async Task<ReplaceOneResult> ReplaceOneAsync(string id, TEntity entity, bool upsert = false)
@@ -343,23 +370,6 @@ namespace JohnKnoop.MongoRepository
 			return this.MongoCollection.Find(FilterDefinition<TEntity>.Empty);
 		}
 
-		public async Task DeleteManyAsync<TDerived>(Expression<Func<TDerived, bool>> filter, bool softDelete = false) where TDerived : TEntity
-		{
-			if (softDelete)
-			{
-				var objects = await this.MongoCollection.OfType<TDerived>().Find(filter).ToListAsync().ConfigureAwait(false);
-
-				var deletedObjects = objects.Select(x => new DeletedObject(x)).ToList();
-
-				if (deletedObjects.Any())
-				{
-					await this._trash.InsertManyAsync(deletedObjects).ConfigureAwait(false);
-				}
-			}
-
-			await this.MongoCollection.OfType<TDerived>().DeleteManyAsync(filter).ConfigureAwait(false);
-		}
-
 		public async Task<TEntity> GetFromTrashAsync(string objectId)
 		{
 			if (objectId == null) throw new ArgumentNullException(nameof(objectId));
@@ -373,24 +383,44 @@ namespace JohnKnoop.MongoRepository
 				throw new Exception($"No object of type {typeof(TEntity).Name} with id {objectId} was found in the trash");
 			}
 
-			return (TEntity) deletedObject.Content;
+			return deletedObject.Entity;
 		}
 
-		//public Task<TEntity> RestoreSoftDeleted(string objectId)
-		//{
-		//	if (objectId == null) throw new ArgumentNullException(nameof(objectId));
+		public async Task<TEntity> RestoreSoftDeletedAsync(string objectId)
+		{
+			if (objectId == null) throw new ArgumentNullException(nameof(objectId));
 
-		//	var filter = new BsonDocument("_id", ObjectId.Parse(objectId));
+			var filter = new BsonDocument("Entity._id", ObjectId.Parse(objectId));
 
-		//	var deletedObject = _trash.Find(filter).SingleOrDefaultAsync();
+			using (await StartTransactionAsync())
+			{
+				var deletedObject = await _trash.FindOneAndDeleteAsync(filter);
 
-		//	if (deletedObject == null)
-		//	{
-		//		throw new Exception($"No object of type {typeof(TEntity).Name} with id {objectId} was found in the trash");
-		//	}
+				if (deletedObject == null)
+				{
+					throw new Exception($"No object with id {objectId} was found in the trash");
+				}
 
-		// Vill man återställa eller bara läsa upp borttagna objekt?
-		//}
+				await this.InsertAsync(deletedObject.Entity);
+				return deletedObject.Entity;
+			}
+		}
+
+		public async Task<IList<TEntity>> RestoreSoftDeletedAsync(Expression<Func<SoftDeletedEntity<TEntity>, bool>> filter)
+		{
+			if (filter == null) throw new ArgumentNullException(nameof(filter));
+
+			var deletedObjects = await _trash.Find(filter).ToListAsync();
+			var deletedEntities = deletedObjects.Select(x => x.Entity).ToList();
+
+			using (await StartTransactionAsync())
+			{
+				await this.InsertManyAsync(deletedEntities);
+				await this._trash.DeleteManyAsync(filter);
+			}
+
+			return deletedEntities;
+		}
 
 		public async Task DeleteManyAsync(Expression<Func<TEntity, bool>> filter, bool softDelete = false)
 		{
@@ -398,7 +428,7 @@ namespace JohnKnoop.MongoRepository
 			{
 				var objects = await this.MongoCollection.Find(filter).ToListAsync();
 
-				var deletedObjects = objects.Select(x => new DeletedObject(x)).ToList();
+				var deletedObjects = objects.Select(x => new DeletedObject<TEntity>(x, this.MongoCollection.CollectionNamespace.CollectionName, DateTime.UtcNow)).ToList();
 
 				if (deletedObjects.Any())
 				{
@@ -409,10 +439,49 @@ namespace JohnKnoop.MongoRepository
 			await this.MongoCollection.DeleteManyAsync(filter).ConfigureAwait(false);
 		}
 
-		public async Task<IFindFluent<TEntity, TEntity>> TextSearch(string text)
+		public async Task DeleteManyAsync<TDerived>(Expression<Func<TDerived, bool>> filter, bool softDelete = false) where TDerived : TEntity
 		{
-			await MongoConfiguration.EnsureIndexesAndCap(MongoCollection).ConfigureAwait(false);
-			return this.MongoCollection.Find(Builders<TEntity>.Filter.Text(text));
+			async Task DeleteEntity() => await this.MongoCollection.OfType<TDerived>().DeleteManyAsync(filter).ConfigureAwait(false);
+
+			if (softDelete)
+			{
+				var objects = await this.MongoCollection.OfType<TDerived>().Find(filter).ToListAsync().ConfigureAwait(false);
+
+				var deletedObjects = objects.Select(x => new DeletedObject<TEntity>(x, this.MongoCollection.CollectionNamespace.CollectionName, DateTime.UtcNow)).ToList();
+
+				if (deletedObjects.Any())
+				{
+					using (await StartTransactionAsync())
+					{
+						await this._trash.InsertManyAsync(deletedObjects).ConfigureAwait(false);
+						await DeleteEntity();
+					}
+				}
+			}
+			else
+			{
+				await DeleteEntity();
+			}
+		}
+
+		public async Task DeleteByIdAsync(string objectId, bool softDelete = false)
+		{
+			if (objectId == null) throw new ArgumentNullException(nameof(objectId));
+
+			var filter = new BsonDocumentFilterDefinition<TEntity>(new BsonDocument("_id", ObjectId.Parse(objectId)));
+
+			if (softDelete)
+			{
+				using (await StartTransactionAsync())
+				{
+					var entity = await this.MongoCollection.FindOneAndDeleteAsync(filter).ConfigureAwait(false);
+					await this.AddToTrashAsync(entity).ConfigureAwait(false);
+				}
+			}
+			else
+			{
+				await this.MongoCollection.DeleteOneAsync(filter).ConfigureAwait(false);
+			}
 		}
 
 		public async Task<IFindFluent<TDerivedEntity, TDerivedEntity>> TextSearch<TDerivedEntity>(string text) where TDerivedEntity : TEntity
@@ -512,18 +581,10 @@ namespace JohnKnoop.MongoRepository
 			return await this.MongoCollection.Find(filter).As<T>().Project(returnProjection).FirstOrDefaultAsync().ConfigureAwait(false);
 		}
 
-		public async Task DeleteByIdAsync(string objectId, bool softDelete = false)
+		public async Task<IFindFluent<TEntity, TEntity>> TextSearch(string text)
 		{
-			if (objectId == null) throw new ArgumentNullException(nameof(objectId));
-
-			if (softDelete)
-			{
-				TEntity obj = await this.GetAsync(objectId).ConfigureAwait(false);
-				await this._trash.InsertOneAsync(new DeletedObject(obj)).ConfigureAwait(false);
-			}
-
-			var filter = new BsonDocumentFilterDefinition<TEntity>(new BsonDocument("_id", ObjectId.Parse(objectId)));
-			await this.MongoCollection.DeleteOneAsync(filter).ConfigureAwait(false);
+			await MongoConfiguration.EnsureIndexesAndCap(MongoCollection).ConfigureAwait(false);
+			return this.MongoCollection.Find(Builders<TEntity>.Filter.Text(text));
 		}
 	}
 }

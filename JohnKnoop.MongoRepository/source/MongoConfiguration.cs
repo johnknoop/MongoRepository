@@ -298,13 +298,11 @@ namespace JohnKnoop.MongoRepository
 				IsPolymorphic = x.IsPolymorphic
             });
 
-		    if (!_collections.ContainsKey(typeof(DeletedObject)))
-		    {
-			    _collections[typeof(DeletedObject)] = new DatabaseCollectionDefinition {
-			        CollectionName = "DeletedObjects",
-			        DatabaseName = null // One per database
-			    };
-		    }
+		    _collections[typeof(SoftDeletedEntity<>)] = new DatabaseCollectionDefinition {
+				IsPolymorphic = true,
+		        CollectionName = "DeletedObjects",
+		        DatabaseName = null // One per database
+		    };
 
 			_indices = allMappedClasses
                 .SelectMany(x => x.Mapping.Indices.Select(y => new
@@ -388,7 +386,13 @@ namespace JohnKnoop.MongoRepository
         private static IMongoCollection<TEntity> GetMongoCollectionInDatabase<TEntity>(IMongoClient mongoClient, string databaseName) {
             var entityType = typeof(TEntity);
 
-            if (!_collections.ContainsKey(entityType)) {
+			if (entityType.IsGenericType && entityType.GetGenericTypeDefinition() == typeof(SoftDeletedEntity<>))
+			{
+				entityType = typeof(SoftDeletedEntity<>);
+			}
+            
+			if (!_collections.ContainsKey(entityType))
+			{
                 throw new NotImplementedException($"{entityType.Name} is not mapped");
             }
 
@@ -402,7 +406,7 @@ namespace JohnKnoop.MongoRepository
         public static IRepository<TEntity> GetRepository<TEntity>(IMongoClient mongoClient, string tenantKey = null)
 	    {
 		    var mongoCollection = GetMongoCollection<TEntity>(mongoClient, tenantKey);
-		    var trashCollection = GetMongoCollectionInDatabase<DeletedObject>(mongoClient, GetDatabaseName(typeof(TEntity), tenantKey));
+		    var trashCollection = GetMongoCollectionInDatabase<SoftDeletedEntity<TEntity>>(mongoClient, GetDatabaseName(typeof(TEntity), tenantKey));
 
 		    return new MongoRepository<TEntity>(mongoCollection, trashCollection);
 		}
@@ -520,7 +524,7 @@ namespace JohnKnoop.MongoRepository
 	    }
 
 	    internal static IList<Type> GetMappedTypes() => _collections.Keys.ToList();
-    }
+	}
 
     public class DecimalToWholeCentsSerializer : IBsonSerializer<decimal>
     {

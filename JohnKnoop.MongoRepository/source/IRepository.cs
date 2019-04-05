@@ -8,6 +8,32 @@ using MongoDB.Driver.Linq;
 
 namespace JohnKnoop.MongoRepository
 {
+	public class SoftDeletedEntity<TEntity>
+	{
+		internal SoftDeletedEntity(TEntity entity, DateTime timestampDeletedUtc)
+		{
+			Entity = entity;
+			TimestampDeletedUtc = timestampDeletedUtc;
+		}
+
+		public TEntity Entity { get; private set; }
+		public DateTime TimestampDeletedUtc { get; private set; }
+	}
+
+	public class SoftDeletedEntity
+	{
+		public SoftDeletedEntity(string typeName, string sourceCollectionName, DateTime timestampDeletedUtc)
+		{
+			TypeName = typeName;
+			SourceCollectionName = sourceCollectionName;
+			TimestampDeletedUtc = timestampDeletedUtc;
+		}
+
+		public string TypeName { get; private set; }
+		public string SourceCollectionName { get; private set; }
+		public DateTime TimestampDeletedUtc { get; private set; }
+	}
+
 	public interface IRepository<TEntity>
 	{
 		Task InsertAsync(TEntity entity);
@@ -44,17 +70,12 @@ namespace JohnKnoop.MongoRepository
 		IAggregateFluent<TEntity> Aggregate(AggregateOptions options = null);
 	    Task DeletePropertyAsync(Expression<Func<TEntity, bool>> filter, Expression<Func<TEntity, object>> propertyExpression);
 
-		/// <summary>
-		/// Stores an arbitrary object in the trash
-		/// </summary>
-		Task AddToTrash<TObject>(TObject objectToTrash);
-
 		Task DeleteManyAsync(Expression<Func<TEntity, bool>> filter, bool softDelete = false);
 		Task DeleteManyAsync<TDerived>(Expression<Func<TDerived, bool>> filter, bool softDelete = false) where TDerived : TEntity;
 
-		//Task<TEntity> RestoreSoftDeleted(string id);
-		//Task<TEntity> RestoreSoftDeleted(Expression<Func<TEntity, bool>> filter);
-		Task<TEntity> GetFromTrashAsync(string id);
+		Task<TEntity> GetFromTrashAsync(Expression<Func<SoftDeletedEntity<TEntity>, bool>> filter);
+		Task<IList<TEntity>> RestoreSoftDeletedAsync(Expression<Func<SoftDeletedEntity<TEntity>, bool>> filter);
+		Task<IList<SoftDeletedEntity>> ListTrashAsync(int? offset = null, int? limit = null);
 
 		Task<ReplaceOneResult> ReplaceOneAsync(string id, TEntity entity, bool upsert = false);
 		Task<ReplaceOneResult> ReplaceOneAsync(Expression<Func<TEntity, bool>> filter, TEntity entity, bool upsert = false);
@@ -97,6 +118,7 @@ namespace JohnKnoop.MongoRepository
 
 		Task<IClientSessionHandle> StartSessionAsync(ClientSessionOptions options = null);
 		Task<Transaction> StartTransactionAsync(ClientSessionOptions sessionOptions = null, TransactionOptions transactionOptions = null);
+		Task<TEntity> RestoreSoftDeletedAsync(string objectId);
 	}
 
 	public class Transaction : IDisposable

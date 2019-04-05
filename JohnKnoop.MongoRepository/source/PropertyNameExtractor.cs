@@ -7,8 +7,6 @@ namespace JohnKnoop.MongoRepository
 {
 	public class PropertyNameExtractor
 	{
-		
-
 		public static string GetPropertyName<TSource, TProp>(Expression<Func<TSource, TProp>> memberExpression)
 		{
 			var outermostExpression = memberExpression.Body;
@@ -27,22 +25,6 @@ namespace JohnKnoop.MongoRepository
 			}
 
 			return string.Join(".", parts);
-
-			//var expression = memberExpression.Body as UnaryExpression;
-			//string propertyName;
-
-			//if (expression == null)
-			//{
-			//	var memExpr = memberExpression.Body as MemberExpression;
-			//	propertyName = memExpr.Member.Name;
-			//}
-			//else
-			//{
-			//	var property = expression.Operand as MemberExpression;
-			//	propertyName = property.Member.Name;
-			//}
-
-			//return propertyName;
 		}
 	}
 }

@@ -12,12 +12,13 @@ An easy-to-configure, powerful repository for MongoDB with support for multi-ten
 	- [LINQ](#linq)
 - [Inserting, updating and deleting](#inserting-updating-and-deleting)
 	- [InsertAsync, InsertManyAsync](#insertasync-insertmanyasync)
-	- [ModifyOneAsync, ModifyManyAsync](#modifyoneasync-modifymanyasync)
-	- [ModifyOneBulkAsync](#modifyonebulkasync)
-	- [FindOneAndModifyAsync](#findoneandmodifyasync),
+	- [UpdateOneAsync, UpdateManyAsync](#updateoneasync-Updatemanyasync)
+	- [UpdateOneBulkAsync](#updateonebulkasync)
+	- [FindOneAndUpdateAsync](#FindOneAndUpdateasync),
 	- [Aggregation](#aggregation)
 	- [Deleting](#deleting)
 		- [Soft-deletes](#soft-deleting)
+	- [Transactions](#transactions)
 - [Advanced features](#advanced-features)
 	- [Counters](#counters)
 	- [Deleting properties](#deleting-properties)
@@ -37,7 +38,7 @@ An easy-to-configure, powerful repository for MongoDB with support for multi-ten
 
 ### Configure mappings, indices, multitenancy etc with a few lines of code...
 
-```C#
+```csharp
 MongoRepository.Configure()
 	.Database("HeadOffice", db => db
 		.Map<Employee>()
@@ -55,7 +56,7 @@ MongoRepository.Configure()
 [See more options](#configuration)
 ### ...then start hacking away
 
-```C#
+```csharp
 var employeeRepository = mongoClient.GetRepository<Employee>();
 var animalRepository = mongoClient.GetRepository<Animal>(tenantKey);
 ```
@@ -63,7 +64,7 @@ var animalRepository = mongoClient.GetRepository<Animal>(tenantKey);
 ## Querying
 
 ### Get by id
-```C#
+```csharp
 await repository.GetAsync("id");
 await repository.GetAsync<SubType>("id");
 
@@ -79,7 +80,7 @@ await repository.GetAsync<SubType>("id", x => new
 
 ### Find by expression
 
-```C#
+```csharp
 await repository.Find(x => x.SomeProperty == someValue);
 await repository.Find<SubType>(x => x.SomeProperty == someValue);
 await repository.Find(x => x.SomeProperty, regexPattern);
@@ -88,7 +89,7 @@ Returns an [IFindFluent](http://api.mongodb.com/csharp/current/html/T_MongoDB_Dr
 
 Examples:
 
-```C#
+```csharp
 var dottedAnimals = await repository
 	.Find(x => x.Coat == "dotted")
 	.Limit(10)
@@ -96,7 +97,7 @@ var dottedAnimals = await repository
 	.ToListAsync()
 ```
 ### LINQ
-```C#
+```csharp
 repository.Query();
 repository.Query<SubType>();
 ```
@@ -104,7 +105,7 @@ Returns an [IMongoQueryable](http://api.mongodb.com/csharp/current/html/T_MongoD
 
 Examples:
 
-```C#
+```csharp
 var dottedAnimals = await repository.Query()
 	.Where(x => x.Coat == "dotted")
 	.Take(10)
@@ -114,44 +115,44 @@ var dottedAnimals = await repository.Query()
 ## Inserting, updating and deleting
 ### InsertAsync, InsertManyAsync
 
-```C#
+```csharp
 await repository.InsertAsync(someObject);
 await repository.InsertManyAsync(someCollectionOfObjects);
 ```
 
-### ModifyOneAsync, ModifyManyAsync
-```C#
-// Modify one document
-await repository.ModifyOneAsync("id", x => x.Set(y => y.SomeProperty, someValue), upsert: true);
-await repository.ModifyOneAsync(x => x.SomeProperty == someValue, x => x.Push(y => y.SomeCollection, someValue));
-await repository.ModifyOneAsync<SubType>(x => x.SomeProperty == someValue, x => x.Push(y => y.SomeCollection, someValue));
+### UpdateOneAsync, UpdateManyAsync
+```csharp
+// Update one document
+await repository.UpdateOneAsync("id", x => x.Set(y => y.SomeProperty, someValue), upsert: true);
+await repository.UpdateOneAsync(x => x.SomeProperty == someValue, x => x.Push(y => y.SomeCollection, someValue));
+await repository.UpdateOneAsync<SubType>(x => x.SomeProperty == someValue, x => x.Push(y => y.SomeCollection, someValue));
 
-// Modify all documents matched by filter
-await repository.ModifyManyAsync(x => x.SomeProperty == someValue, x => x.Inc(y => y.SomeProperty, 5));
+// Update all documents matched by filter
+await repository.UpdateManyAsync(x => x.SomeProperty == someValue, x => x.Inc(y => y.SomeProperty, 5));
 ```
-### ModifyOneBulkAsync
+### UpdateOneBulkAsync
 Perform multiple update operations with different filters in one db roundtrip.
-```C#
-await repository.ModifyOneBulkAsync(new List<ModifyOneCommand<MyEntity>> {
-	new ModifyOneCommand<MyEntity> {
+```csharp
+await repository.UpdateOneBulkAsync(new List<UpdateOneCommand<MyEntity>> {
+	new UpdateOneCommand<MyEntity> {
 		Filter = x => x.SomeProperty = "foo",
 		Update = x => x.Set(y => y.SomeOtherProperty, 10)
 	},
-	new ModifyOneCommand<MyEntity> {
+	new UpdateOneCommand<MyEntity> {
 		Filter = x => x.SomeProperty = "bar",
 		Update = x => x.Set(y => y.SomeOtherProperty, 20)
 	}
 });
 ```
-### FindOneAndModifyAsync
+### FindOneAndUpdateAsync
 This is a really powerful feature of MongoDB, in that it lets you update and retrieve a document atomically.
-```C#
-var entityAfterUpdate = await repository.FindOneAndModifyAsync(
+```csharp
+var entityAfterUpdate = await repository.FindOneAndUpdateAsync(
 	filter: x => x.SomeProperty.StartsWith("Hello"),
 	update: x => x.AddToSet(y => y.SomeCollection, someItem)
 );
 
-var entityAfterUpdate = await repository.FindOneAndModifyAsync(
+var entityAfterUpdate = await repository.FindOneAndUpdateAsync(
 	filter: x => x.SomeProperty.StartsWith("Hello"),
 	update: x => x.PullFilter(y => y.SomeCollection, y => y.SomeOtherProperty == 5),
 	returnProjection: x => new {
@@ -162,42 +163,58 @@ var entityAfterUpdate = await repository.FindOneAndModifyAsync(
 );
 ```
 ### Aggregation
-```C#
+```csharp
 repository.Aggregate();
 repository.Aggregate(options);
 ```
 Returns an [IAggregateFluent](http://api.mongodb.com/csharp/current/html/T_MongoDB_Driver_IAggregateFluent_1.htm) which offers methods like `AppendStage`, `Group`, `Match`, `Unwind`, `Out`, `Lookup` etc.
 
 ### Deleting
-```C#
+```csharp
 await repository.DeleteByIdAsync("id");
 await repository.DeleteManyAsync(x => x.SomeProperty === someValue);
 ```
 #### Soft-deleting
 Soft-deleting an entity will move it to a different collection, preserving type-information.
-```C#
+```csharp
 await repository.DeleteByIdAsync("id", softDelete: true);
 ```
 Listing soft-deleted entities:
-```C#
-await repository.ListTrash();
+```csharp
+await repository.ListTrashAsync();
 ```
+Restoring one (or many) soft-deleten entities
+```csharp
+await repository.RestoreSoftDeletedAsync("id");
+await repository.RestoreSoftDeletedAsync(x => x.TimestampDeletedUtc > DateTime.Today);
+```
+
+### Transactions
+MongoDB 4 introduced support for multi-document transactions using `Sessions`. We provide a simplified interface:
+
+```csharp
+using (await repository.StartTransactionAsync()) {
+	// ...
+}
+```
+
+
 ## Advanced features
 
 ### Counters
 
 Auto-incrementing fields is a feature of most relational databases that unfortunately isn't supported by MongoDB. To get around this, _counters_ are a way to solve the problem of incrementing a number with full concurrency support.
-```C#
+```csharp
 var value = await repository.GetCounterValueAsync();
 var value = await repository.GetCounterValueAsync("MyNamedCounter");
 ```
 Atomically increment and read the value of a counter:
-```C#
+```csharp
 var value = await repository.IncrementCounterAsync(); // Increment by 1
 var value = await repository.IncrementCounterAsync(name: "MyNamedCounter", incrementBy: 5);
 ```
 Reset a counter:
-```C#
+```csharp
 await repository.ResetCounterAsync(); // Reset to 1
 await repository.ResetCounterAsync(name: "MyNamedCounter", newValue: 5);
 ```
@@ -206,7 +223,7 @@ await repository.ResetCounterAsync(name: "MyNamedCounter", newValue: 5);
 
 Delete a property from a document:
 
-```C#
+```csharp
 await repository.DeletePropertyAsync(x => x.SomeProperty == someValue, x => x.PropertyToRemove);
 ```
 
@@ -218,7 +235,7 @@ Configuration is done once, when the application is started. Use `MongoRepositor
 
 Database-per-tenant style multi-tenancy is supported. When defining a database, just use the `DatabasePerTenant` method:
 
-```C#
+```csharp
 MongoRepository.Configure()
 	// Every tenant should have their own Sales database
 	.DatabasePerTenant("Sales", db => db
@@ -236,7 +253,7 @@ Mapping a type hierarchy to the same collection is easy. Just map the base type 
 ### Indices
 
 Indices are defined when mapping a type:
-```C#
+```csharp
 MongoRepository.Configure()
 	// Every tenant should have their own Sales database
 	.Database("Zoo", db => db
@@ -254,14 +271,19 @@ MongoRepository.Configure()
 ```
 
 ### Capped collections
+
+_[To be documented]_
+
 ### Unconventional id properties
+
+_[To be documented]_
 
 ### DI frameworks
 #### .NET Core
 
 When configuring the application services, iterate through the mapped types and bind each generic repository
 
-```C#
+```csharp
 MongoRepository.GetMappedTypes().ForEach(entityType =>
 	{
 		services.AddTransient(typeof(IRepository<>).MakeGenericType(entityType), provider =>
@@ -281,7 +303,7 @@ MongoRepository.GetMappedTypes().ForEach(entityType =>
 
 #### Ninject
 
-```C#
+```csharp
 this.Bind(typeof(IRepository<>)).ToMethod(context =>
 {
 	Type entityType = context.GenericArguments[0];
