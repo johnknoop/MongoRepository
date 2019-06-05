@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
@@ -165,7 +165,7 @@ namespace JohnKnoop.MongoRepository
 			return this;
 		}
 
-		public DatabaseConfiguration Map<T>() => Map<T>(nameof(T));
+		public DatabaseConfiguration Map<T>() => Map<T>(typeof(T).Name);
 
 		public DatabaseConfiguration MapAlongWithSubclassesInSameAssebmly<T>(string collectionName, Action<TypeMappingBuilder<T>> builderFactory = null)
 		{

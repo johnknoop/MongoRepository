@@ -1,9 +1,11 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Threading.Tasks;
 using MongoDB.Bson;
+using MongoDB.Bson.Serialization;
+using MongoDB.Bson.Serialization.Serializers;
 using MongoDB.Driver;
 using MongoDB.Driver.Linq;
 
@@ -356,7 +358,7 @@ namespace JohnKnoop.MongoRepository
 		{
 			if (entities.Any())
 			{
-				await MongoConfiguration.EnsureIndexesAndCap(MongoCollection);
+				await MongoConfiguration.EnsureIndexesAndCap(MongoCollection).ConfigureAwait(false);
 
 				await this.MongoCollection.InsertManyAsync(entities).ConfigureAwait(false);
 			}
@@ -380,7 +382,7 @@ namespace JohnKnoop.MongoRepository
 
 			if (deletedObject == null)
 			{
-				throw new Exception($"No object of type {typeof(TEntity).Name} with id {objectId} was found in the trash");
+				throw new Exception($"No document of type {typeof(TEntity).Name} with id {objectId} was found in the trash");
 			}
 
 			return deletedObject.Entity;
@@ -398,7 +400,7 @@ namespace JohnKnoop.MongoRepository
 
 				if (deletedObject == null)
 				{
-					throw new Exception($"No object with id {objectId} was found in the trash");
+					throw new Exception($"No document with id {objectId} was found in the trash");
 				}
 
 				await this.InsertAsync(deletedObject.Entity);
@@ -411,6 +413,12 @@ namespace JohnKnoop.MongoRepository
 			if (filter == null) throw new ArgumentNullException(nameof(filter));
 
 			var deletedObjects = await _trash.Find(filter).ToListAsync();
+
+			if (deletedObjects.Count == 0)
+			{
+				return new List<TEntity>(0);
+			}
+
 			var deletedEntities = deletedObjects.Select(x => x.Entity).ToList();
 
 			using (await StartTransactionAsync())
@@ -422,16 +430,46 @@ namespace JohnKnoop.MongoRepository
 			return deletedEntities;
 		}
 
+		public async Task<IList<TDerived>> RestoreSoftDeletedAsync<TDerived>(Expression<Func<SoftDeletedEntity<TDerived>, bool>> filter) where TDerived : TEntity
+		{
+			if (filter == null) throw new ArgumentNullException(nameof(filter));
+
+			var serializerRegistry = BsonSerializer.SerializerRegistry;
+			var documentSerializer = serializerRegistry.GetSerializer<SoftDeletedEntity<TDerived>>();
+        
+			var filterBson = Builders<SoftDeletedEntity<TDerived>>.Filter.Where(filter).Render(documentSerializer, serializerRegistry);
+
+			var deletedObjects = await _trash.Find(filterBson).ToListAsync();
+
+			if (deletedObjects.Count == 0)
+			{
+				return new List<TDerived>(0);
+			}
+
+			var deletedEntities = deletedObjects.Select(x => x.Entity).OfType<TDerived>().ToList();
+
+			using (await StartTransactionAsync())
+			{
+				foreach (var deletedEntity in deletedEntities)
+				{
+					await InsertAsync(deletedEntity);
+				}
+
+				await this._trash.DeleteManyAsync(filterBson);
+			}
+
+			return deletedEntities;
+		}
+
 		public async Task DeleteManyAsync(Expression<Func<TEntity, bool>> filter, bool softDelete = false)
 		{
 			if (softDelete)
 			{
 				var objects = await this.MongoCollection.Find(filter).ToListAsync();
 
-				var deletedObjects = objects.Select(x => new DeletedObject<TEntity>(x, this.MongoCollection.CollectionNamespace.CollectionName, DateTime.UtcNow)).ToList();
-
-				if (deletedObjects.Any())
+				if (objects.Any())
 				{
+					var deletedObjects = objects.Select(x => new DeletedObject<TEntity>(x, this.MongoCollection.CollectionNamespace.CollectionName, DateTime.UtcNow)).ToList();
 					await this._trash.InsertManyAsync(deletedObjects).ConfigureAwait(false);
 				}
 			}
@@ -447,10 +485,10 @@ namespace JohnKnoop.MongoRepository
 			{
 				var objects = await this.MongoCollection.OfType<TDerived>().Find(filter).ToListAsync().ConfigureAwait(false);
 
-				var deletedObjects = objects.Select(x => new DeletedObject<TEntity>(x, this.MongoCollection.CollectionNamespace.CollectionName, DateTime.UtcNow)).ToList();
-
-				if (deletedObjects.Any())
+				if (objects.Any())
 				{
+					var deletedObjects = objects.Select(x => new DeletedObject<TEntity>(x, this.MongoCollection.CollectionNamespace.CollectionName, DateTime.UtcNow)).ToList();
+
 					using (await StartTransactionAsync())
 					{
 						await this._trash.InsertManyAsync(deletedObjects).ConfigureAwait(false);
@@ -475,6 +513,12 @@ namespace JohnKnoop.MongoRepository
 				using (await StartTransactionAsync())
 				{
 					var entity = await this.MongoCollection.FindOneAndDeleteAsync(filter).ConfigureAwait(false);
+
+					if (entity == null)
+					{
+						throw new Exception($"No document with id {objectId} was found");
+					}
+
 					await this.AddToTrashAsync(entity).ConfigureAwait(false);
 				}
 			}

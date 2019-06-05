@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq.Expressions;
 using System.Threading;
@@ -119,6 +119,7 @@ namespace JohnKnoop.MongoRepository
 		Task<IClientSessionHandle> StartSessionAsync(ClientSessionOptions options = null);
 		Task<Transaction> StartTransactionAsync(ClientSessionOptions sessionOptions = null, TransactionOptions transactionOptions = null);
 		Task<TEntity> RestoreSoftDeletedAsync(string objectId);
+		Task<IList<TDerived>> RestoreSoftDeletedAsync<TDerived>(Expression<Func<SoftDeletedEntity<TDerived>, bool>> filter) where TDerived : TEntity;
 	}
 
 	public class Transaction : IDisposable
