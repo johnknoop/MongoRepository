@@ -125,9 +125,9 @@ namespace JohnKnoop.MongoRepository
 			return await this.MongoCollection.ReplaceOneAsync(filter, entity, new UpdateOptions { IsUpsert = upsert }).ConfigureAwait(false);
 		}
 
-		public async Task<TReturnProjection> FindOneAndUpdateAsync<TReturnProjection>(Expression<Func<TEntity, bool>> filter, Func<UpdateDefinitionBuilder<TEntity>, UpdateDefinition<TEntity>> update, Expression<Func<TEntity, TReturnProjection>> returnProjection, ReturnedDocumentState returnedDocumentState = ReturnedDocumentState.BeforeUpdate, bool upsert = false)
+		public Task<TReturnProjection> FindOneAndUpdateAsync<TReturnProjection>(Expression<Func<TEntity, bool>> filter, Func<UpdateDefinitionBuilder<TEntity>, UpdateDefinition<TEntity>> update, Expression<Func<TEntity, TReturnProjection>> returnProjection, ReturnedDocumentState returnedDocumentState = ReturnedDocumentState.BeforeUpdate, bool upsert = false)
 		{
-			return await FindOneAndUpdateAsync(filter, update, Builders<TEntity>.Projection.Expression(returnProjection), returnedDocumentState, upsert);
+			return FindOneAndUpdateAsync(filter, update, Builders<TEntity>.Projection.Expression(returnProjection), returnedDocumentState, upsert);
 		}
 
 		public async Task<TReturnProjection> FindOneAndUpdateAsync<TReturnProjection>(Expression<Func<TEntity, bool>> filter, Func<UpdateDefinitionBuilder<TEntity>, UpdateDefinition<TEntity>> update, ProjectionDefinition<TEntity, TReturnProjection> returnProjection, ReturnedDocumentState returnedDocumentState = ReturnedDocumentState.AfterUpdate, bool upsert = false)
@@ -147,6 +147,54 @@ namespace JohnKnoop.MongoRepository
 					ReturnDocument = returnDocument,
 					IsUpsert = upsert
 				}).ConfigureAwait(false);
+		}
+
+		public Task<TReturnProjection> FindOneAndReplaceAsync<TReturnProjection>(Expression<Func<TEntity, bool>> filter,  TEntity replacement, Expression<Func<TEntity, TReturnProjection>> returnProjection, ReturnedDocumentState returnedDocumentState = ReturnedDocumentState.AfterUpdate, bool upsert = false)
+		{
+			return FindOneAndReplaceAsync(filter, replacement, Builders<TEntity>.Projection.Expression(returnProjection), returnedDocumentState, upsert);
+		}
+
+		public async Task<TReturnProjection> FindOneAndReplaceAsync<TReturnProjection>(Expression<Func<TEntity, bool>> filter,  TEntity replacement, ProjectionDefinition<TEntity, TReturnProjection> returnProjection, ReturnedDocumentState returnedDocumentState = ReturnedDocumentState.AfterUpdate, bool upsert = false)
+		{
+			await MongoConfiguration.EnsureIndexesAndCap(MongoCollection);
+
+			var returnDocument = returnedDocumentState == ReturnedDocumentState.BeforeUpdate
+				? ReturnDocument.Before
+				: ReturnDocument.After;
+
+			return await this.MongoCollection.FindOneAndReplaceAsync(
+				filter,
+				replacement,
+				new FindOneAndReplaceOptions<TEntity, TReturnProjection>
+				{
+					Projection = returnProjection,
+					ReturnDocument = returnDocument,
+					IsUpsert = upsert
+				})
+				.ConfigureAwait(false);
+		}
+
+		public async Task<TReturnProjection> FindOneOrInsertAsync<TReturnProjection>(Expression<Func<TEntity, bool>> filter, TEntity entity, Expression<Func<TEntity, TReturnProjection>> returnProjection,
+			ReturnedDocumentState returnedDocumentState = ReturnedDocumentState.AfterUpdate)
+		{
+			await MongoConfiguration.EnsureIndexesAndCap(MongoCollection);
+
+			var returnDocument = returnedDocumentState == ReturnedDocumentState.BeforeUpdate
+				? ReturnDocument.Before
+				: ReturnDocument.After;
+
+			return await MongoCollection
+				.FindOneAndUpdateAsync<TEntity, TReturnProjection>(
+					filter: filter, 
+					update: new BsonDocumentUpdateDefinition<TEntity>(new BsonDocument("$setOnInsert",
+						entity.ToBsonDocument(MongoCollection.DocumentSerializer))),
+					options: new FindOneAndUpdateOptions<TEntity, TReturnProjection>
+					{
+						ReturnDocument = ReturnDocument.After,
+						IsUpsert = true,
+						Projection = Builders<TEntity>.Projection.Expression(returnProjection)
+					}
+				);
 		}
 
 		public async Task<bool> UpdateOneAsync<TDerived>(string id, Func<UpdateDefinitionBuilder<TDerived>, UpdateDefinition<TDerived>> update, bool upsert = false) where TDerived : TEntity

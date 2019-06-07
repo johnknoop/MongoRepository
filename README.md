@@ -15,6 +15,8 @@ An easy-to-configure, powerful repository for MongoDB with support for multi-ten
 	- [UpdateOneAsync, UpdateManyAsync](#updateoneasync-Updatemanyasync)
 	- [UpdateOneBulkAsync](#updateonebulkasync)
 	- [FindOneAndUpdateAsync](#FindOneAndUpdateasync),
+	- [FindOneAndReplaceAsync](documentation under construction),
+	- [FindOneOrInsertAsync](documentation under construction),
 	- [Aggregation](#aggregation)
 	- [Deleting](#deleting)
 		- [Soft-deletes](#soft-deleting)

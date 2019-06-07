@@ -335,7 +335,10 @@ namespace JohnKnoop.MongoRepository
 				    bsonClassMap.MapIdProperty(t.Mapping.IdMember).SetSerializer(new StringSerializer(BsonType.ObjectId)).SetIdGenerator(new StringObjectIdGenerator());
 			    }
 
-			    BsonClassMap.RegisterClassMap(bsonClassMap);
+				if (!BsonClassMap.IsClassMapRegistered(t.Type))
+				{
+					BsonClassMap.RegisterClassMap(bsonClassMap);
+				}
 
 			    if (t.IsPolymorphic)
 			    {
