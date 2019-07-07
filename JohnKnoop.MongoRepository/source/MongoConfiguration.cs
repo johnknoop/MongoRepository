@@ -304,6 +304,23 @@ namespace JohnKnoop.MongoRepository
 		        DatabaseName = null // One per database
 		    };
 
+			var baseClasses = allMappedClasses.Where(x => x.IsPolymorphic);
+
+			foreach (var baseClass in baseClasses)
+			{
+				var subtypes = baseClass.Type.GetTypeInfo().Assembly.GetTypes().Where(st => st.GetTypeInfo().IsSubclassOf(baseClass.Type));
+
+				foreach (var subtype in subtypes)
+				{
+					_collections[subtype] = new DatabaseCollectionDefinition
+					{
+						CollectionName = baseClass.Mapping.CollectionName,
+						IsPolymorphic = false,
+						DatabaseName = baseClass.DatabaseName
+					};
+				}
+			}
+
 			_indices = allMappedClasses
                 .SelectMany(x => x.Mapping.Indices.Select(y => new
 			        {
@@ -353,7 +370,7 @@ namespace JohnKnoop.MongoRepository
 					    {
 						    BsonClassMap.RegisterClassMap(bsonSubClassMap);
 					    }
-				    }
+					}
 			    }
 			}
 		    
@@ -460,6 +477,21 @@ namespace JohnKnoop.MongoRepository
         {
             public void PostProcess(BsonClassMap classMap)
             {
+				bool IsTrash(Type t)
+				{
+					if (!t.IsGenericType)
+					{
+						return false;
+					}
+
+					return t.GetGenericTypeDefinition().Equals(typeof(SoftDeletedEntity<>));
+				}
+
+				if (!_collections.ContainsKey(classMap.ClassType) && !IsTrash(classMap.ClassType))
+				{
+					return;
+				}
+
                 var idMap = classMap.IdMemberMap;
                 if (idMap != null && idMap.MemberName == "Id" && idMap.MemberType == typeof(string))
                 {
