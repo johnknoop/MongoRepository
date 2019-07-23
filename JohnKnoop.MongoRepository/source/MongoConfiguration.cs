@@ -477,6 +477,11 @@ namespace JohnKnoop.MongoRepository
         {
             public void PostProcess(BsonClassMap classMap)
             {
+				bool IsEntityOrBaseOfEntity(Type t)
+				{
+					return _collections.ContainsKey(t) || _collections.Any(x => t.IsAssignableFrom(x.Key));
+				}
+
 				bool IsTrash(Type t)
 				{
 					if (!t.IsGenericType)
@@ -487,7 +492,7 @@ namespace JohnKnoop.MongoRepository
 					return t.GetGenericTypeDefinition().Equals(typeof(SoftDeletedEntity<>));
 				}
 
-				if (!_collections.ContainsKey(classMap.ClassType) && !IsTrash(classMap.ClassType))
+				if (!IsEntityOrBaseOfEntity(classMap.ClassType) && !IsTrash(classMap.ClassType))
 				{
 					return;
 				}
