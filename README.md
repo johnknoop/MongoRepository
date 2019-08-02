@@ -33,6 +33,8 @@ An easy-to-configure, powerful repository for MongoDB with support for multi-ten
 	- [DI frameworks](#di-frameworks)
 		- [Ninject](#ninject)
 		- [.Net Core](#net-core)
+- Contribute
+	- [Design philosophy](#design-philosophy)
 
 ## Getting started
 
@@ -283,25 +285,9 @@ _[To be documented]_
 ### DI frameworks
 #### .NET Core
 
-When configuring the application services, iterate through the mapped types and bind each generic repository
+There is an extension package called `JohnKnoop.MongoRepository.DotNetCoreDi` that registers `IRepository<T>` as a dependency with the .NET Core dependency injection framework.
 
-```csharp
-MongoRepository.GetMappedTypes().ForEach(entityType =>
-	{
-		services.AddTransient(typeof(IRepository<>).MakeGenericType(entityType), provider =>
-		{
-			var mongoClient = provider.GetService<IMongoClient>();
-			var httpContextAccessor = provider.GetService<IHttpContextAccessor>();
-			
-			// In this example, we get the tenant key from the HttpContext, but you might get it from anywhere
-			var tenantKey = httpContextAccessor.HttpContext?.Items["TenantKey"];
-
-			var getRepositoryMethod = typeof(MongoConfiguration).GetMethod(nameof(MongoConfiguration.GetRepository));
-			var getRepositoryMethodGeneric = getRepositoryMethod.MakeGenericMethod(entityType);
-			return getRepositoryMethodGeneric.Invoke(this, new object[] { mongoClient, tenantKey });
-		});
-	});
-```
+See the [repository readme](https://github.com/johnknoop/MongoRepository.DotNetCoreDi) for more information.
 
 #### Ninject
 
@@ -317,3 +303,9 @@ this.Bind(typeof(IRepository<>)).ToMethod(context =>
 	return getRepositoryMethodGeneric.Invoke(this, new object[] { mongoClient, tenantKey });
 });
 ```
+
+## Design philosophy
+
+This library is an extension to the MongoDB C# driver, and thus I don't mind exposing types from the MongoDB.Driver namespace, like IFindFluent or the result types of the various operations.
+
+Any contributions to this library should be in line with the philosophy of this primarily being an extension that makes it easy to write multi-tenant applications using the MongoDB driver. I'm not looking to widen the scope of this library.
