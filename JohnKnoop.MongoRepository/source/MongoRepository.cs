@@ -197,7 +197,7 @@ namespace JohnKnoop.MongoRepository
 				);
 		}
 
-		public async Task<bool> UpdateOneAsync<TDerived>(string id, Func<UpdateDefinitionBuilder<TDerived>, UpdateDefinition<TDerived>> update, bool upsert = false) where TDerived : TEntity
+		public async Task<UpdateResult> UpdateOneAsync<TDerived>(string id, Func<UpdateDefinitionBuilder<TDerived>, UpdateDefinition<TDerived>> update, bool upsert = false) where TDerived : TEntity
 		{
 			if (id == null) throw new ArgumentNullException(nameof(id));
 
@@ -205,19 +205,17 @@ namespace JohnKnoop.MongoRepository
 
 			var filter = Builders<TDerived>.Filter.Eq("_id", ObjectId.Parse(id));
 
-			var result = await this.MongoCollection.OfType<TDerived>().UpdateOneAsync(filter, update(Builders<TDerived>.Update), new UpdateOptions { IsUpsert = upsert }).ConfigureAwait(false);
-			return result.MatchedCount == 1;
-		}
+			return await this.MongoCollection.OfType<TDerived>().UpdateOneAsync(filter, update(Builders<TDerived>.Update), new UpdateOptions { IsUpsert = upsert }).ConfigureAwait(false);
+        }
 
-		public async Task<bool> UpdateOneAsync<TDerived>(Expression<Func<TDerived, bool>> filter, Func<UpdateDefinitionBuilder<TDerived>, UpdateDefinition<TDerived>> update, bool upsert = false) where TDerived : TEntity
+		public async Task<UpdateResult> UpdateOneAsync<TDerived>(Expression<Func<TDerived, bool>> filter, Func<UpdateDefinitionBuilder<TDerived>, UpdateDefinition<TDerived>> update, bool upsert = false) where TDerived : TEntity
 		{
 			await MongoConfiguration.EnsureIndexesAndCap(MongoCollection);
 
-			var result = await this.MongoCollection.OfType<TDerived>().UpdateOneAsync(filter, update(Builders<TDerived>.Update), new UpdateOptions { IsUpsert = upsert }).ConfigureAwait(false);
-			return result.MatchedCount == 1;
-		}
+			return await this.MongoCollection.OfType<TDerived>().UpdateOneAsync(filter, update(Builders<TDerived>.Update), new UpdateOptions { IsUpsert = upsert }).ConfigureAwait(false);
+        }
 
-		public async Task<bool> UpdateOneAsync(string id, Func<UpdateDefinitionBuilder<TEntity>, UpdateDefinition<TEntity>> update, bool upsert = false)
+		public async Task<UpdateResult> UpdateOneAsync(string id, Func<UpdateDefinitionBuilder<TEntity>, UpdateDefinition<TEntity>> update, bool upsert = false)
 		{
 			if (id == null) throw new ArgumentNullException(nameof(id));
 
@@ -225,25 +223,22 @@ namespace JohnKnoop.MongoRepository
 
 			var filter = Builders<TEntity>.Filter.Eq("_id", ObjectId.Parse(id));
 
-			var result = await this.MongoCollection.UpdateOneAsync(filter, update(Builders<TEntity>.Update), new UpdateOptions { IsUpsert = upsert }).ConfigureAwait(false);
-			return result.MatchedCount == 1;
-		}
+			return await this.MongoCollection.UpdateOneAsync(filter, update(Builders<TEntity>.Update), new UpdateOptions { IsUpsert = upsert }).ConfigureAwait(false);
+        }
 
-		public async Task<bool> UpdateOneAsync(Expression<Func<TEntity, bool>> filter, Func<UpdateDefinitionBuilder<TEntity>, UpdateDefinition<TEntity>> update, bool upsert = false)
+		public async Task<UpdateResult> UpdateOneAsync(Expression<Func<TEntity, bool>> filter, Func<UpdateDefinitionBuilder<TEntity>, UpdateDefinition<TEntity>> update, bool upsert = false)
 		{
 			await MongoConfiguration.EnsureIndexesAndCap(MongoCollection);
 
-			var result = await this.MongoCollection.UpdateOneAsync(filter, update(Builders<TEntity>.Update), new UpdateOptions { IsUpsert = upsert }).ConfigureAwait(false);
-			return result.MatchedCount == 1;
-		}
+			return await this.MongoCollection.UpdateOneAsync(filter, update(Builders<TEntity>.Update), new UpdateOptions { IsUpsert = upsert }).ConfigureAwait(false);
+        }
 
-		public async Task<bool> UpdateOneAsync(string filter, string update, bool upsert = false)
+		public async Task<UpdateResult> UpdateOneAsync(string filter, string update, bool upsert = false)
 		{
 			await MongoConfiguration.EnsureIndexesAndCap(MongoCollection);
 
-			var result = await this.MongoCollection.UpdateOneAsync(filter, update, new UpdateOptions { IsUpsert = upsert }).ConfigureAwait(false);
-			return result.MatchedCount == 1;
-		}
+			return await this.MongoCollection.UpdateOneAsync(filter, update, new UpdateOptions { IsUpsert = upsert }).ConfigureAwait(false);
+        }
 
 		/// <summary>
 		/// Executes multiple update operations in one batch
@@ -389,20 +384,22 @@ namespace JohnKnoop.MongoRepository
 			return result.GetElement(fieldName).Value.ToInt64();
 		}
 
-		public async Task ReplaceManyAsync(IEnumerable<ReplaceManyCommand<TEntity>> commands, bool upsert = false)
+		public async Task<BulkWriteResult<TEntity>> ReplaceManyAsync(IList<ReplaceManyCommand<TEntity>> commands, bool upsert = false)
 		{
-			if (commands.Any())
+			if (!commands.Any())
 			{
-				await MongoConfiguration.EnsureIndexesAndCap(MongoCollection);
-
-				await this.MongoCollection.BulkWriteAsync(commands.Select(cmd => new ReplaceOneModel<TEntity>(cmd.Filter(Builders<TEntity>.Filter), cmd.Replacement)
-				{
-					IsUpsert = upsert
-				})).ConfigureAwait(false);
+                throw new ArgumentException("At least one command must be provided");
 			}
-		}
 
-		public async Task InsertManyAsync(IEnumerable<TEntity> entities)
+            await MongoConfiguration.EnsureIndexesAndCap(MongoCollection);
+
+            return await this.MongoCollection.BulkWriteAsync(commands.Select(cmd => new ReplaceOneModel<TEntity>(cmd.Filter(Builders<TEntity>.Filter), cmd.Replacement)
+            {
+                IsUpsert = upsert
+            })).ConfigureAwait(false);
+        }
+
+		public async Task InsertManyAsync(IList<TEntity> entities)
 		{
 			if (entities.Any())
 			{
@@ -413,7 +410,7 @@ namespace JohnKnoop.MongoRepository
 		}
 
 		public async Task InsertManyAsync(params TEntity[] entities) =>
-			await InsertManyAsync((IEnumerable<TEntity>)entities);
+			await InsertManyAsync(entities.ToList());
 
 		public IFindFluent<TEntity, TEntity> GetAll()
 		{
@@ -509,7 +506,7 @@ namespace JohnKnoop.MongoRepository
 			return deletedEntities;
 		}
 
-		public async Task DeleteManyAsync(Expression<Func<TEntity, bool>> filter, bool softDelete = false)
+		public async Task<DeleteResult> DeleteManyAsync(Expression<Func<TEntity, bool>> filter, bool softDelete = false)
 		{
 			if (softDelete)
 			{
@@ -522,12 +519,12 @@ namespace JohnKnoop.MongoRepository
 				}
 			}
 
-			await this.MongoCollection.DeleteManyAsync(filter).ConfigureAwait(false);
+			return await this.MongoCollection.DeleteManyAsync(filter).ConfigureAwait(false);
 		}
 
-		public async Task DeleteManyAsync<TDerived>(Expression<Func<TDerived, bool>> filter, bool softDelete = false) where TDerived : TEntity
+		public async Task<DeleteResult> DeleteManyAsync<TDerived>(Expression<Func<TDerived, bool>> filter, bool softDelete = false) where TDerived : TEntity
 		{
-			async Task DeleteEntity() => await this.MongoCollection.OfType<TDerived>().DeleteManyAsync(filter).ConfigureAwait(false);
+			async Task<DeleteResult> DeleteEntity() => await this.MongoCollection.OfType<TDerived>().DeleteManyAsync(filter).ConfigureAwait(false);
 
 			if (softDelete)
 			{
@@ -540,17 +537,21 @@ namespace JohnKnoop.MongoRepository
 					using (await StartTransactionAsync())
 					{
 						await this._trash.InsertManyAsync(deletedObjects).ConfigureAwait(false);
-						await DeleteEntity();
+						return await DeleteEntity();
 					}
 				}
+                else
+                {
+                    return new NoneDeletedResult();
+                }
 			}
 			else
 			{
-				await DeleteEntity();
+				return await DeleteEntity();
 			}
 		}
 
-		public async Task DeleteByIdAsync(string objectId, bool softDelete = false)
+		public async Task<DeleteResult> DeleteByIdAsync(string objectId, bool softDelete = false)
 		{
 			if (objectId == null) throw new ArgumentNullException(nameof(objectId));
 
@@ -568,11 +569,13 @@ namespace JohnKnoop.MongoRepository
 					}
 
 					await this.AddToTrashAsync(entity).ConfigureAwait(false);
+
+                    return new SoftDeleteResult(1);
 				}
 			}
 			else
 			{
-				await this.MongoCollection.DeleteOneAsync(filter).ConfigureAwait(false);
+				return await this.MongoCollection.DeleteOneAsync(filter).ConfigureAwait(false);
 			}
 		}
 
@@ -679,4 +682,21 @@ namespace JohnKnoop.MongoRepository
 			return this.MongoCollection.Find(Builders<TEntity>.Filter.Text(text));
 		}
 	}
+
+    public class NoneDeletedResult : DeleteResult
+    {
+        public override long DeletedCount { get; } = 0;
+        public override bool IsAcknowledged { get; } = false;
+    }
+
+    public class SoftDeleteResult : DeleteResult
+    {
+        public SoftDeleteResult(long deletedCount)
+        {
+            DeletedCount = deletedCount;
+        }
+
+        public override long DeletedCount { get; }
+        public override bool IsAcknowledged { get; } = true;
+    }
 }

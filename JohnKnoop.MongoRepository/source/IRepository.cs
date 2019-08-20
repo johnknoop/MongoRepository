@@ -4,6 +4,7 @@ using System.Linq.Expressions;
 using System.Threading;
 using System.Threading.Tasks;
 using MongoDB.Driver;
+using MongoDB.Driver.Core.Operations;
 using MongoDB.Driver.Linq;
 
 namespace JohnKnoop.MongoRepository
@@ -37,7 +38,7 @@ namespace JohnKnoop.MongoRepository
 	public interface IRepository<TEntity>
 	{
 		Task InsertAsync(TEntity entity);
-		Task InsertManyAsync(IEnumerable<TEntity> entities);
+		Task InsertManyAsync(IList<TEntity> entities);
 		Task InsertManyAsync(params TEntity[] entities);
 
 		IMongoQueryable<TEntity> Query();
@@ -50,7 +51,6 @@ namespace JohnKnoop.MongoRepository
 		Task<T> GetAsync<T>(string id) where T : TEntity;
 		Task<TReturnProjection> GetAsync<T, TReturnProjection>(string id, Expression<Func<TEntity, TReturnProjection>> returnProjection) where T : TEntity;
 
-		Task DeleteByIdAsync(string id, bool softDelete = false);
 
 		IFindFluent<TEntity, TEntity> GetAll();
 		IFindFluent<TEntity, TEntity> Find(Expression<Func<TEntity, bool>> filter);
@@ -70,8 +70,9 @@ namespace JohnKnoop.MongoRepository
 		IAggregateFluent<TEntity> Aggregate(AggregateOptions options = null);
 	    Task DeletePropertyAsync(Expression<Func<TEntity, bool>> filter, Expression<Func<TEntity, object>> propertyExpression);
 
-		Task DeleteManyAsync(Expression<Func<TEntity, bool>> filter, bool softDelete = false);
-		Task DeleteManyAsync<TDerived>(Expression<Func<TDerived, bool>> filter, bool softDelete = false) where TDerived : TEntity;
+        Task<DeleteResult> DeleteByIdAsync(string id, bool softDelete = false);
+		Task<DeleteResult> DeleteManyAsync(Expression<Func<TEntity, bool>> filter, bool softDelete = false);
+		Task<DeleteResult> DeleteManyAsync<TDerived>(Expression<Func<TDerived, bool>> filter, bool softDelete = false) where TDerived : TEntity;
 
 		Task<TEntity> GetFromTrashAsync(Expression<Func<SoftDeletedEntity<TEntity>, bool>> filter);
 		Task<IList<TEntity>> RestoreSoftDeletedAsync(Expression<Func<SoftDeletedEntity<TEntity>, bool>> filter);
@@ -79,12 +80,13 @@ namespace JohnKnoop.MongoRepository
 
 		Task<ReplaceOneResult> ReplaceOneAsync(string id, TEntity entity, bool upsert = false);
 		Task<ReplaceOneResult> ReplaceOneAsync(Expression<Func<TEntity, bool>> filter, TEntity entity, bool upsert = false);
-		Task ReplaceManyAsync(IEnumerable<ReplaceManyCommand<TEntity>> commands, bool upsert = false);
+		Task<BulkWriteResult<TEntity>> ReplaceManyAsync(IList<ReplaceManyCommand<TEntity>> commands, bool upsert = false);
 
-		Task<bool> UpdateOneAsync(string id, Func<UpdateDefinitionBuilder<TEntity>, UpdateDefinition<TEntity>> update, bool upsert = false);
-		Task<bool> UpdateOneAsync(Expression<Func<TEntity, bool>> filter, Func<UpdateDefinitionBuilder<TEntity>, UpdateDefinition<TEntity>> update, bool upsert = false);
-		Task<bool> UpdateOneAsync<TDerived>(string id, Func<UpdateDefinitionBuilder<TDerived>, UpdateDefinition<TDerived>> update, bool upsert = false) where TDerived : TEntity;
-		Task<bool> UpdateOneAsync<TDerived>(Expression<Func<TDerived, bool>> filter, Func<UpdateDefinitionBuilder<TDerived>, UpdateDefinition<TDerived>> update, bool upsert = false) where TDerived : TEntity;
+        Task<UpdateResult> UpdateOneAsync(string filter, string update, bool upsert = false);
+		Task<UpdateResult> UpdateOneAsync(string id, Func<UpdateDefinitionBuilder<TEntity>, UpdateDefinition<TEntity>> update, bool upsert = false);
+		Task<UpdateResult> UpdateOneAsync(Expression<Func<TEntity, bool>> filter, Func<UpdateDefinitionBuilder<TEntity>, UpdateDefinition<TEntity>> update, bool upsert = false);
+		Task<UpdateResult> UpdateOneAsync<TDerived>(string id, Func<UpdateDefinitionBuilder<TDerived>, UpdateDefinition<TDerived>> update, bool upsert = false) where TDerived : TEntity;
+		Task<UpdateResult> UpdateOneAsync<TDerived>(Expression<Func<TDerived, bool>> filter, Func<UpdateDefinitionBuilder<TDerived>, UpdateDefinition<TDerived>> update, bool upsert = false) where TDerived : TEntity;
 		Task<TReturnProjection> FindOneAndUpdateAsync<TReturnProjection>(Expression<Func<TEntity, bool>> filter, Func<UpdateDefinitionBuilder<TEntity>, UpdateDefinition<TEntity>> update, Expression<Func<TEntity, TReturnProjection>> returnProjection, ReturnedDocumentState returnedDocumentState = ReturnedDocumentState.AfterUpdate, bool upsert = false);
 		Task<TReturnProjection> FindOneAndUpdateAsync<TReturnProjection>(Expression<Func<TEntity, bool>> filter, Func<UpdateDefinitionBuilder<TEntity>, UpdateDefinition<TEntity>> update, ProjectionDefinition<TEntity, TReturnProjection> returnProjection, ReturnedDocumentState returnedDocumentState = ReturnedDocumentState.AfterUpdate, bool upsert = false);
 
@@ -112,7 +114,7 @@ namespace JohnKnoop.MongoRepository
 		Task<long> IncrementCounterAsync(string name = null, int incrementBy = 1);
 		Task<long?> GetCounterValueAsync(string name = null);
 		Task ResetCounterAsync(string name = null, long newValue = 1);
-		Task<bool> UpdateOneAsync(string filter, string update, bool upsert = false);
+		
 		Task<IFindFluent<TEntity, TEntity>> TextSearch(string text);
 		Task<IFindFluent<TDerivedEntity, TDerivedEntity>> TextSearch<TDerivedEntity>(string text) where TDerivedEntity : TEntity;
 
