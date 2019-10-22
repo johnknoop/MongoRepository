@@ -305,11 +305,15 @@ namespace JohnKnoop.MongoRepository
         {
             await MongoConfiguration.EnsureIndexesAndCap(MongoCollection);
 
-            var cmds = commands.Select(cmd =>
-            new UpdateOneModel<TDerived>(cmd.Filter(Builders<TDerived>.Filter), cmd.UpdateJson ?? cmd.Update(Builders<TDerived>.Update))
-            {
-                IsUpsert = cmd.IsUpsert
-            }).ToList();
+			var cmds = commands.Select(cmd =>
+				new UpdateOneModel<TDerived>(
+					filter: cmd.Filter(Builders<TDerived>.Filter),
+					update: cmd.UpdateJson ?? cmd.Update(Builders<TDerived>.Update)
+				)
+				{
+					IsUpsert = cmd.IsUpsert
+				}
+			).ToList();
 
             if (cmds.Any())
             {
@@ -317,8 +321,8 @@ namespace JohnKnoop.MongoRepository
                 return result;
             }
 
-            return null;
-        }
+			return new NoBulkWriteResult<TDerived>();
+		}
 
         /// <summary>
         /// Applies the same update to multiple entities
@@ -725,6 +729,21 @@ namespace JohnKnoop.MongoRepository
             return this.MongoCollection.Find(Builders<TEntity>.Filter.Text(text));
         }
     }
+
+	public class NoBulkWriteResult<T> : BulkWriteResult<T>
+	{
+		public NoBulkWriteResult() : base(0, null)
+		{
+		}
+
+		public override long DeletedCount => 0;
+		public override long InsertedCount => 0;
+		public override bool IsAcknowledged => false;
+		public override bool IsModifiedCountAvailable => false;
+		public override long MatchedCount => 0;
+		public override long ModifiedCount => 0;
+		public override IReadOnlyList<BulkWriteUpsert> Upserts => new List<BulkWriteUpsert>(0);
+	}
 
     public class NoneDeletedResult : DeleteResult
     {
