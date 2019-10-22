@@ -335,7 +335,8 @@ namespace JohnKnoop.MongoRepository
 		    var conventionPack = new ConventionPack
 		    {
 			    new IgnoreExtraElementsConvention(true),
-			    new StringObjectIdConvention()
+			    // Todo: behövs både denna och rad 356
+				new StringObjectIdConvention()
 		    };
 
 		    ConventionRegistry.Register("Conventions", conventionPack, type => true);
@@ -349,7 +350,10 @@ namespace JohnKnoop.MongoRepository
 				
 				if (t.Mapping.IdMember != null)
 			    {
-				    bsonClassMap.MapIdProperty(t.Mapping.IdMember).SetSerializer(new StringSerializer(BsonType.ObjectId)).SetIdGenerator(new StringObjectIdGenerator());
+				    bsonClassMap
+						.MapIdProperty(t.Mapping.IdMember)
+						.SetSerializer(new StringSerializer(BsonType.ObjectId))
+						.SetIdGenerator(new StringObjectIdGenerator());
 			    }
 
 				if (!BsonClassMap.IsClassMapRegistered(t.Type))
