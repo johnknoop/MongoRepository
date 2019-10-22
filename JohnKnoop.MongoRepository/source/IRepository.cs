@@ -38,8 +38,8 @@ namespace JohnKnoop.MongoRepository
 	public interface IRepository<TEntity>
 	{
 		Task InsertAsync(TEntity entity);
-		Task InsertManyAsync(IList<TEntity> entities);
-		Task InsertManyAsync(params TEntity[] entities);
+		Task InsertManyAsync(ICollection<TEntity> entities);
+		Task InsertManyAsync<TDerivedEntity>(ICollection<TDerivedEntity> entities) where TDerivedEntity : TEntity;
 
 		IMongoQueryable<TEntity> Query();
 	    IMongoQueryable<TDerivedEntity> Query<TDerivedEntity>() where TDerivedEntity : TEntity;

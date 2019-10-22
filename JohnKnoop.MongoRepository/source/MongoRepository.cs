@@ -435,23 +435,30 @@ namespace JohnKnoop.MongoRepository
             })).ConfigureAwait(false);
         }
 
-        public async Task InsertManyAsync(IList<TEntity> entities)
-        {
-            if (entities.Any())
-            {
-                await MongoConfiguration.EnsureIndexesAndCap(MongoCollection).ConfigureAwait(false);
+		public async Task InsertManyAsync(ICollection<TEntity> entities)
+		{
+			if (entities.Any())
+			{
+				await MongoConfiguration.EnsureIndexesAndCap(MongoCollection).ConfigureAwait(false);
 
                 await this.MongoCollection.InsertManyAsync(entities).ConfigureAwait(false);
             }
         }
 
-        public async Task InsertManyAsync(params TEntity[] entities) =>
-            await InsertManyAsync(entities.ToList());
+		public async Task InsertManyAsync<TDerivedEntity>(ICollection<TDerivedEntity> entities) where TDerivedEntity : TEntity
+		{
+			if (entities.Any())
+			{
+				await MongoConfiguration.EnsureIndexesAndCap(MongoCollection).ConfigureAwait(false);
 
-        public IFindFluent<TEntity, TEntity> GetAll()
-        {
-            return this.MongoCollection.Find(FilterDefinition<TEntity>.Empty);
-        }
+				await this.MongoCollection.OfType<TDerivedEntity>().InsertManyAsync(entities).ConfigureAwait(false);
+			}
+		}
+
+		public IFindFluent<TEntity, TEntity> GetAll()
+		{
+			return this.MongoCollection.Find(FilterDefinition<TEntity>.Empty);
+		}
 
         public async Task<TEntity> GetFromTrashAsync(string objectId)
         {
