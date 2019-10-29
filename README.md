@@ -197,8 +197,9 @@ await repository.RestoreSoftDeletedAsync(x => x.TimestampDeletedUtc > DateTime.T
 MongoDB 4 introduced support for multi-document transactions using `Sessions`. We provide a simplified interface:
 
 ```csharp
-using (await repository.StartTransactionAsync()) {
+using (var transaction = await repository.StartTransactionAsync()) {
 	// ...
+	await transaction.CommitAsync();
 }
 ```
 
