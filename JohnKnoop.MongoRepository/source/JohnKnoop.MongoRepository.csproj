@@ -2,7 +2,7 @@
 
 	<PropertyGroup>
 		<TargetFramework>netstandard2.0</TargetFramework>
-		<Version>3.0.0-alpha.1</Version>
+		<Version>3.0.0-rc.3</Version>
 		<Description>An easily configurable repository for MongoDB with support for multi-tenancy</Description>
 		<PackageProjectUrl>https://github.com/johnknoop/MongoRepository</PackageProjectUrl>
 		<PackageTags>repository mongodb multitenant</PackageTags>
@@ -13,7 +13,11 @@
 - InsertMany now takes an IList of commands rather than an IEnumerable
 - All Delete operations return a Task&lt;DeleteResult&gt; rather than Task
 - All Update operations return a Task&lt;UpdateResult&gt; rather than Task&lt;bool&gt;
-- ReplaceManyAsync returns a Task&lt;BulkWriteResult&lt;TEntity&gt;&gt; rather than a Task</PackageReleaseNotes>
+- ReplaceManyAsync returns a Task&lt;BulkWriteResult&lt;TEntity&gt;&gt; rather than a Task
+
+New features:
+
+- All overloads of UpdateOneAsync now take an UpdateOptions parameter</PackageReleaseNotes>
 	</PropertyGroup>
 
 	<ItemGroup>
