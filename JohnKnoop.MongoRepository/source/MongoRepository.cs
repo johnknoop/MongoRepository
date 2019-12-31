@@ -202,7 +202,7 @@ namespace JohnKnoop.MongoRepository
             where TDerived : TEntity
                 => UpdateOneAsync<TDerived>(id, update, new UpdateOptions { IsUpsert = upsert });
 
-        public async Task<UpdateResult> UpdateOneAsync<TDerived>(string id, Func<UpdateDefinitionBuilder<TDerived>, UpdateDefinition<TDerived>> update, UpdateOptions options = null) where TDerived : TEntity
+        public async Task<UpdateResult> UpdateOneAsync<TDerived>(string id, Func<UpdateDefinitionBuilder<TDerived>, UpdateDefinition<TDerived>> update, UpdateOptions options) where TDerived : TEntity
         {
             if (id == null) throw new ArgumentNullException(nameof(id));
 
@@ -224,11 +224,11 @@ namespace JohnKnoop.MongoRepository
                 => UpdateOneAsync<TDerived>(filter, update, new UpdateOptions { IsUpsert = upsert });
 
         public Task<UpdateResult> UpdateOneAsync<TDerived>(Expression<Func<TDerived, bool>> filter,
-            Func<UpdateDefinitionBuilder<TDerived>, UpdateDefinition<TDerived>> update, UpdateOptions options = null)
+            Func<UpdateDefinitionBuilder<TDerived>, UpdateDefinition<TDerived>> update, UpdateOptions options)
             where TDerived : TEntity =>
                 UpdateOneAsync((FilterDefinition<TDerived>) filter, update, options);
 
-        public async Task<UpdateResult> UpdateOneAsync<TDerived>(FilterDefinition<TDerived> filter, Func<UpdateDefinitionBuilder<TDerived>, UpdateDefinition<TDerived>> update, UpdateOptions options = null) where TDerived : TEntity
+        public async Task<UpdateResult> UpdateOneAsync<TDerived>(FilterDefinition<TDerived> filter, Func<UpdateDefinitionBuilder<TDerived>, UpdateDefinition<TDerived>> update, UpdateOptions options) where TDerived : TEntity
         {
             await MongoConfiguration.EnsureIndexesAndCap(MongoCollection);
 
@@ -259,10 +259,10 @@ namespace JohnKnoop.MongoRepository
                 UpdateOneAsync(filter, update, new UpdateOptions { IsUpsert = upsert });
 
         public Task<UpdateResult> UpdateOneAsync(Expression<Func<TEntity, bool>> filter,
-            Func<UpdateDefinitionBuilder<TEntity>, UpdateDefinition<TEntity>> update, UpdateOptions options = null) =>
+            Func<UpdateDefinitionBuilder<TEntity>, UpdateDefinition<TEntity>> update, UpdateOptions options) =>
                 UpdateOneAsync((FilterDefinition<TEntity>)filter, update, options);
 
-        public async Task<UpdateResult> UpdateOneAsync(FilterDefinition<TEntity> filter, Func<UpdateDefinitionBuilder<TEntity>, UpdateDefinition<TEntity>> update, UpdateOptions options = null)
+        public async Task<UpdateResult> UpdateOneAsync(FilterDefinition<TEntity> filter, Func<UpdateDefinitionBuilder<TEntity>, UpdateDefinition<TEntity>> update, UpdateOptions options)
         {
             await MongoConfiguration.EnsureIndexesAndCap(MongoCollection);
 
@@ -329,7 +329,7 @@ namespace JohnKnoop.MongoRepository
         /// </summary>
         public async Task UpdateManyAsync(Expression<Func<TEntity, bool>> filter,
             Func<UpdateDefinitionBuilder<TEntity>, UpdateDefinition<TEntity>> update,
-            UpdateOptions options = null)
+            UpdateOptions options)
         {
             await MongoConfiguration.EnsureIndexesAndCap(MongoCollection);
 
@@ -341,7 +341,7 @@ namespace JohnKnoop.MongoRepository
         /// </summary>
         public async Task UpdateManyAsync(Expression<Func<TEntity, bool>> filter,
             string update,
-            UpdateOptions options = null)
+            UpdateOptions options)
         {
             await MongoConfiguration.EnsureIndexesAndCap(MongoCollection);
 
