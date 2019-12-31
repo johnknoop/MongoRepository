@@ -329,7 +329,7 @@ namespace JohnKnoop.MongoRepository
         /// </summary>
         public async Task UpdateManyAsync(Expression<Func<TEntity, bool>> filter,
             Func<UpdateDefinitionBuilder<TEntity>, UpdateDefinition<TEntity>> update,
-            UpdateOptions options)
+            UpdateOptions options = null)
         {
             await MongoConfiguration.EnsureIndexesAndCap(MongoCollection);
 
@@ -341,7 +341,7 @@ namespace JohnKnoop.MongoRepository
         /// </summary>
         public async Task UpdateManyAsync(Expression<Func<TEntity, bool>> filter,
             string update,
-            UpdateOptions options)
+            UpdateOptions options = null)
         {
             await MongoConfiguration.EnsureIndexesAndCap(MongoCollection);
 

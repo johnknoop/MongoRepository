@@ -122,12 +122,12 @@ namespace JohnKnoop.MongoRepository
 		/// </summary>
 		Task UpdateManyAsync(Expression<Func<TEntity, bool>> filter,
 			Func<UpdateDefinitionBuilder<TEntity>, UpdateDefinition<TEntity>> update,
-			UpdateOptions options);
+			UpdateOptions options = null);
 
         [Obsolete("This overload of UpdateOneAsync will be removed in a future version")]
 		Task UpdateManyAsync(Expression<Func<TEntity, bool>> filter,
 			string update,
-			UpdateOptions options);
+			UpdateOptions options = null);
 
 		Task<long> IncrementCounterAsync(string name = null, int incrementBy = 1);
 		Task<long?> GetCounterValueAsync(string name = null);
