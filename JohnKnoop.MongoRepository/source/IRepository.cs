@@ -129,6 +129,12 @@ namespace JohnKnoop.MongoRepository
 			string update,
 			UpdateOptions options = null);
 
+		/// <summary>
+		/// Increments a counter (stored in the _counters collection) and returns the new value
+		/// </summary>
+		/// <param name="name">The name of the counter. Use if you need more than one counter per collection.</param>
+		/// <param name="incrementBy">The size of the increment</param>
+		/// <returns>The new value of the counter</returns>
 		Task<long> IncrementCounterAsync(string name = null, int incrementBy = 1);
 		Task<long?> GetCounterValueAsync(string name = null);
 		Task ResetCounterAsync(string name = null, long newValue = 1);
