@@ -732,7 +732,7 @@ namespace JohnKnoop.MongoRepository
 
 	public class NoBulkWriteResult<T> : BulkWriteResult<T>
 	{
-		public NoBulkWriteResult() : base(0, null)
+		public NoBulkWriteResult() : base(0, Enumerable.Empty<WriteModel<T>>())
 		{
 		}
 
