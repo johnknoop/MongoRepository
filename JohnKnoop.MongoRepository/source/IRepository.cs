@@ -139,6 +139,12 @@ namespace JohnKnoop.MongoRepository
 		Task<long?> GetCounterValueAsync(string name = null);
 		Task ResetCounterAsync(string name = null, long newValue = 1);
 		
+		/// <summary>
+		/// Updates the value of a counter if the new value is greater than the current one
+		/// </summary>
+		/// <returns>The value of the counter after the operation is done</returns>
+		Task<long> SetCounterValueIfGreater(long newValue, string name = null);
+		
 		Task<IFindFluent<TEntity, TEntity>> TextSearch(string text);
 		Task<IFindFluent<TDerivedEntity, TDerivedEntity>> TextSearch<TDerivedEntity>(string text) where TDerivedEntity : TEntity;
 

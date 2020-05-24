@@ -372,6 +372,33 @@ namespace JohnKnoop.MongoRepository
                 : null;
         }
 
+        public async Task<long> SetCounterValueIfGreater(long newValue, string name = null)
+        {
+            var counterCollectionName = "_counters";
+
+            var fieldName = MongoCollection.CollectionNamespace.CollectionName;
+
+            if (name != null)
+            {
+                fieldName += $"_{name}";
+            }
+
+            var collection = MongoCollection.Database.GetCollection<BsonDocument>(counterCollectionName);
+            var fieldDefinition = new StringFieldDefinition<BsonDocument, long>(fieldName);
+
+            var newCounterState = await collection.FindOneAndUpdateAsync<BsonDocument>(
+                filter: x => true,
+                update: Builders<BsonDocument>.Update.Max(fieldDefinition, newValue),
+                options: new FindOneAndUpdateOptions<BsonDocument, BsonDocument>
+                {
+                    Projection = Builders<BsonDocument>.Projection.Include(fieldDefinition),
+                    ReturnDocument = ReturnDocument.After
+                }
+            ).ConfigureAwait(false);
+
+            return newCounterState.GetElement(fieldName).Value.AsInt64;
+        }
+
         public async Task ResetCounterAsync(string name = null, long newValue = 0)
         {
             var counterCollectionName = "_counters";
