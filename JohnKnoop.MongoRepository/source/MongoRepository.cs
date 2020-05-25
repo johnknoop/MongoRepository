@@ -372,7 +372,7 @@ namespace JohnKnoop.MongoRepository
                 : null;
         }
 
-        public async Task<long> SetCounterValueIfGreater(long newValue, string name = null)
+        public async Task<long> SetCounterValueIfGreaterAsync(long newValue, string name = null)
         {
             var counterCollectionName = "_counters";
 
@@ -392,7 +392,8 @@ namespace JohnKnoop.MongoRepository
                 options: new FindOneAndUpdateOptions<BsonDocument, BsonDocument>
                 {
                     Projection = Builders<BsonDocument>.Projection.Include(fieldDefinition),
-                    ReturnDocument = ReturnDocument.After
+                    ReturnDocument = ReturnDocument.After,
+                    IsUpsert = true
                 }
             ).ConfigureAwait(false);
 
