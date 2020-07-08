@@ -713,6 +713,32 @@ namespace JohnKnoop.MongoRepository
             return this.MongoCollection.Find(Builders<TEntity>.Filter.Or(filters));
         }
 
+        public IFindFluent<TDerivedEntity, TDerivedEntity> Find<TDerivedEntity>(FieldDefinition<TDerivedEntity> property, string regexPattern, string regexOptions = "i") where TDerivedEntity : TEntity
+        {
+            return this.MongoCollection.OfType<TDerivedEntity>().Find(Builders<TDerivedEntity>.Filter.Regex(property, new BsonRegularExpression(regexPattern, regexOptions)));
+        }
+
+        public IFindFluent<TDerivedEntity, TDerivedEntity> Find<TDerivedEntity>(Expression<Func<TDerivedEntity, object>> property, string regexPattern, string regexOptions = "i") where TDerivedEntity : TEntity
+        {
+            return this.MongoCollection.OfType<TDerivedEntity>().Find(Builders<TDerivedEntity>.Filter.Regex(property, new BsonRegularExpression(regexPattern, regexOptions)));
+        }
+
+        public IFindFluent<TDerivedEntity, TDerivedEntity> Find<TDerivedEntity>(IEnumerable<FieldDefinition<TDerivedEntity>> properties, string regexPattern, string regexOptions = "i") where TDerivedEntity : TEntity
+        {
+            var filters = properties.Select(p =>
+                Builders<TDerivedEntity>.Filter.Regex(p, new BsonRegularExpression(regexPattern, regexOptions)));
+
+            return this.MongoCollection.OfType<TDerivedEntity>().Find(Builders<TDerivedEntity>.Filter.Or(filters));
+        }
+
+        public IFindFluent<TDerivedEntity, TDerivedEntity> Find<TDerivedEntity>(IEnumerable<Expression<Func<TDerivedEntity, object>>> properties, string regexPattern, string regexOptions = "i") where TDerivedEntity : TEntity
+        {
+            var filters = properties.Select(p =>
+                Builders<TDerivedEntity>.Filter.Regex(p, new BsonRegularExpression(regexPattern, regexOptions)));
+
+            return this.MongoCollection.OfType<TDerivedEntity>().Find(Builders<TDerivedEntity>.Filter.Or(filters));
+        }
+
         public IFindFluent<TDerivedEntity, TDerivedEntity> Find<TDerivedEntity>(Expression<Func<TDerivedEntity, bool>> filterExpression) where TDerivedEntity : TEntity
         {
             return this.MongoCollection.OfType<TDerivedEntity>().Find(filterExpression);
