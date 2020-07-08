@@ -46,10 +46,19 @@ namespace JohnKnoop.MongoRepository
 		
 		/// <returns>An instance of <c>TEntity</c> or null</returns>
 		Task<TEntity> GetAsync(string id);
-		Task<TReturnProjection> GetAsync<TReturnProjection>(string id, Expression<Func<TEntity, TReturnProjection>> returnProjection);
 		/// <returns>An instance of <c>T</c> or null</returns>
-		Task<T> GetAsync<T>(string id) where T : TEntity;
-		Task<TReturnProjection> GetAsync<T, TReturnProjection>(string id, Expression<Func<TEntity, TReturnProjection>> returnProjection) where T : TEntity;
+		Task<TDerivedEntity> GetAsync<TDerivedEntity>(string id) where TDerivedEntity : TEntity;
+		
+		Task<TReturnProjection> GetAsync<TReturnProjection>(string id, Expression<Func<TEntity, TReturnProjection>> returnProjection);
+		Task<TReturnProjection> GetAsync<TDerivedEntity, TReturnProjection>(string id, Expression<Func<TDerivedEntity, TReturnProjection>> returnProjection) where TDerivedEntity : TEntity;
+
+
+
+
+
+
+
+
 
 
 		IFindFluent<TEntity, TEntity> GetAll();

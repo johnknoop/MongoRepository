@@ -756,9 +756,6 @@ namespace JohnKnoop.MongoRepository
 
         public async Task<TEntity> GetAsync(string objectId) => await GetAsync<TEntity>(objectId).ConfigureAwait(false);
 
-        public async Task<TReturnProjection> GetAsync<TReturnProjection>(string objectId, Expression<Func<TEntity, TReturnProjection>> returnProjection) =>
-            await GetAsync<TEntity, TReturnProjection>(objectId, returnProjection).ConfigureAwait(false);
-
         public async Task<T> GetAsync<T>(string objectId) where T : TEntity
         {
             if (objectId == null) throw new ArgumentNullException(nameof(objectId));
@@ -768,13 +765,22 @@ namespace JohnKnoop.MongoRepository
             return await this.MongoCollection.Find(filter).As<T>().FirstOrDefaultAsync().ConfigureAwait(false);
         }
 
-        public async Task<TReturnProjection> GetAsync<T, TReturnProjection>(string objectId, Expression<Func<TEntity, TReturnProjection>> returnProjection) where T : TEntity
+        public async Task<TReturnProjection> GetAsync<TReturnProjection>(string objectId, Expression<Func<TEntity, TReturnProjection>> returnProjection)
         {
             if (objectId == null) throw new ArgumentNullException(nameof(objectId));
 
             var filter = new BsonDocument("_id", ObjectId.Parse(objectId));
 
-            return await this.MongoCollection.Find(filter).As<T>().Project(returnProjection).FirstOrDefaultAsync().ConfigureAwait(false);
+            return await this.MongoCollection.Find(filter).Project(returnProjection).FirstOrDefaultAsync().ConfigureAwait(false);
+        }
+
+        public async Task<TReturnProjection> GetAsync<TDerivedEntity, TReturnProjection>(string objectId, Expression<Func<TDerivedEntity, TReturnProjection>> returnProjection) where TDerivedEntity : TEntity
+        {
+            if (objectId == null) throw new ArgumentNullException(nameof(objectId));
+
+            var filter = new BsonDocument("_id", ObjectId.Parse(objectId));
+
+            return await this.MongoCollection.OfType<TDerivedEntity>().Find(filter).Project(returnProjection).FirstOrDefaultAsync().ConfigureAwait(false);
         }
 
         public async Task<IFindFluent<TEntity, TEntity>> TextSearch(string text)
