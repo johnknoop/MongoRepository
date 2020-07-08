@@ -2,13 +2,13 @@
 
 	<PropertyGroup>
 		<TargetFramework>netstandard2.0</TargetFramework>
-		<Version>3.1.2</Version>
+		<Version>4.1.1</Version>
 		<Description>An easily configurable repository for MongoDB with support for multi-tenancy</Description>
 		<PackageProjectUrl>https://github.com/johnknoop/MongoRepository</PackageProjectUrl>
 		<PackageTags>repository mongodb multitenant</PackageTags>
 		<Authors>John Knoop</Authors>
 		<LangVersion>7.1</LangVersion>
-		<PackageReleaseNotes>Add documentation for IncrementCounterAsync</PackageReleaseNotes>
+		<PackageReleaseNotes>Fixed problem with GetAsync(id, projection) always using OfType, which requires a _t property.</PackageReleaseNotes>
 	</PropertyGroup>
 
 	<ItemGroup>
