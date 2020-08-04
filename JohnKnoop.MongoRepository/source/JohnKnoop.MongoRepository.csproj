@@ -2,13 +2,15 @@
 
 	<PropertyGroup>
 		<TargetFramework>netstandard2.0</TargetFramework>
-		<Version>4.1.1</Version>
+		<Version>5.0.0-beta.1</Version>
 		<Description>An easily configurable repository for MongoDB with support for multi-tenancy</Description>
 		<PackageProjectUrl>https://github.com/johnknoop/MongoRepository</PackageProjectUrl>
 		<PackageTags>repository mongodb multitenant</PackageTags>
 		<Authors>John Knoop</Authors>
 		<LangVersion>7.1</LangVersion>
-		<PackageReleaseNotes>Fixed problem with GetAsync(id, projection) always using OfType, which requires a _t property.</PackageReleaseNotes>
+		<PackageReleaseNotes>Revamped transaction API.
+
+Removed StartSessionAsync</PackageReleaseNotes>
 	</PropertyGroup>
 
 	<ItemGroup>
@@ -16,7 +18,7 @@
 		<PackageReference Include="MongoDB.Driver" version="2.8.1" />
 		<PackageReference Include="MongoDB.Driver.Core" version="2.8.1" />
 		<PackageReference Include="Newtonsoft.Json" version="12.0.2" />
-		<PackageReference Include="System.Runtime" Version="4.3.1" />
+		<PackageReference Include="System.Threading.Tasks.Extensions" Version="4.5.4" />
 	</ItemGroup>
 
 </Project>

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq.Expressions;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Transactions;
 using MongoDB.Driver;
 using MongoDB.Driver.Core.Operations;
 using MongoDB.Driver.Linq;
@@ -52,15 +53,6 @@ namespace JohnKnoop.MongoRepository
 		Task<TReturnProjection> GetAsync<TReturnProjection>(string id, Expression<Func<TEntity, TReturnProjection>> returnProjection);
 		Task<TReturnProjection> GetAsync<TDerivedEntity, TReturnProjection>(string id, Expression<Func<TDerivedEntity, TReturnProjection>> returnProjection) where TDerivedEntity : TEntity;
 
-
-
-
-
-
-
-
-
-
 		IFindFluent<TEntity, TEntity> GetAll();
 		IFindFluent<TEntity, TEntity> Find(Expression<Func<TEntity, bool>> filter);
 		IFindFluent<TDerivedEntity, TDerivedEntity> Find<TDerivedEntity>(Expression<Func<TDerivedEntity, bool>> filter) where TDerivedEntity : TEntity;
@@ -90,6 +82,11 @@ namespace JohnKnoop.MongoRepository
 		Task<TEntity> GetFromTrashAsync(Expression<Func<SoftDeletedEntity<TEntity>, bool>> filter);
 		Task<IList<TEntity>> RestoreSoftDeletedAsync(Expression<Func<SoftDeletedEntity<TEntity>, bool>> filter);
 		Task<IList<SoftDeletedEntity>> ListTrashAsync(int? offset = null, int? limit = null);
+
+		Task<TEntity> RestoreSoftDeletedAsync(string objectId);
+		Task<IList<TDerived>> RestoreSoftDeletedAsync<TDerived>(Expression<Func<SoftDeletedEntity<TDerived>, bool>> filter) where TDerived : TEntity;
+		
+		Task<long> PermamentlyDeleteSoftDeletedAsync(Expression<Func<SoftDeletedEntity<TEntity>, bool>> filter);
 
 		Task<ReplaceOneResult> ReplaceOneAsync(string id, TEntity entity, bool upsert = false);
 		Task<ReplaceOneResult> ReplaceOneAsync(Expression<Func<TEntity, bool>> filter, TEntity entity, bool upsert = false);
@@ -160,39 +157,94 @@ namespace JohnKnoop.MongoRepository
 		
 		Task<IFindFluent<TEntity, TEntity>> TextSearch(string text);
 		Task<IFindFluent<TDerivedEntity, TDerivedEntity>> TextSearch<TDerivedEntity>(string text) where TDerivedEntity : TEntity;
-
-		Task<IClientSessionHandle> StartSessionAsync(ClientSessionOptions options = null);
-		Task<Transaction> StartTransactionAsync(ClientSessionOptions sessionOptions = null, TransactionOptions transactionOptions = null);
-		Task<TEntity> RestoreSoftDeletedAsync(string objectId);
-		Task<IList<TDerived>> RestoreSoftDeletedAsync<TDerived>(Expression<Func<SoftDeletedEntity<TDerived>, bool>> filter) where TDerived : TEntity;
+		
 		Task<TReturnProjection> FindOneAndReplaceAsync<TReturnProjection>(Expression<Func<TEntity, bool>> filter,  TEntity replacement, Expression<Func<TEntity, TReturnProjection>> returnProjection, ReturnedDocumentState returnedDocumentState = ReturnedDocumentState.AfterUpdate, bool upsert = false);
 		Task<TReturnProjection> FindOneAndReplaceAsync<TReturnProjection>(Expression<Func<TEntity, bool>> filter,  TEntity replacement, ProjectionDefinition<TEntity, TReturnProjection> returnProjection, ReturnedDocumentState returnedDocumentState = ReturnedDocumentState.AfterUpdate, bool upsert = false);
 		
 		Task<TReturnProjection> FindOneOrInsertAsync<TReturnProjection>(Expression<Func<TEntity, bool>> filter, TEntity entity, Expression<Func<TEntity, TReturnProjection>> returnProjection, ReturnedDocumentState returnedDocumentState = ReturnedDocumentState.AfterUpdate);
+		
+		/// <summary>
+		/// Enlists with the ambient TransactionScope, and fails or succeeds as it fails or succeeds.
+		/// This is useful to be able to put a transactional boundary around MongoDB operations
+		/// and things that are compatible with TransactionScopes.
+		/// 
+		/// This method will throw if there is no ambient TransactionScope.
+		/// </summary>
+		void EnlistWithCurrentTransactionScope();
+		Transaction StartTransaction(ClientSessionOptions sessionOptions = null, MongoDB.Driver.TransactionOptions transactionOptions = null);
+	}
+
+	public class TransactionEnlistment : IEnlistmentNotification
+	{
+		private readonly IClientSessionHandle _session;
+
+		public TransactionEnlistment(IClientSessionHandle session)
+		{
+			_session = session;
+		}
+
+		public void Commit(Enlistment enlistment)
+		{
+			_session.CommitTransaction();
+			enlistment.Done();
+		}
+
+		public void InDoubt(Enlistment enlistment)
+		{
+			enlistment.Done();
+		}
+
+		public void Prepare(PreparingEnlistment preparingEnlistment)
+		{
+			preparingEnlistment.Prepared();
+		}
+
+		public void Rollback(Enlistment enlistment)
+		{
+			_session.AbortTransaction();
+			enlistment.Done();
+		}
 	}
 
 	public class Transaction : IDisposable
 	{
 		private readonly IClientSessionHandle _session;
+		private readonly OnTransactionCompleted _onCompleted;
 
-		public Transaction(IClientSessionHandle session)
+		private bool _isCompleted = false;
+
+		public IClientSessionHandle Session => _session;
+		
+		internal delegate void OnTransactionCompleted(bool committed);
+
+		internal Transaction(IClientSessionHandle session, OnTransactionCompleted onCompleted)
 		{
 			_session = session;
+			_onCompleted = onCompleted;
 		}
 
 		public async Task CommitAsync(CancellationToken cancellation = default)
 		{
 			await _session.CommitTransactionAsync(cancellation);
+			_onCompleted(true);
+			_isCompleted = true;
 		}
 
 		public async Task AbortAsync(CancellationToken cancellation = default)
 		{
 			await _session.AbortTransactionAsync(cancellation);
+			_onCompleted(false);
+			_isCompleted = true;
 		}
 
 		public void Dispose()
 		{
 			_session.Dispose();
+
+			if (!_isCompleted)
+			{
+				_onCompleted(false); 
+			}
 		}
 	}
 

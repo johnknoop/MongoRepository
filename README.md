@@ -192,9 +192,13 @@ Restoring one (or many) soft-deleten entities
 await repository.RestoreSoftDeletedAsync("id");
 await repository.RestoreSoftDeletedAsync(x => x.TimestampDeletedUtc > DateTime.Today);
 ```
+Permanently delete soft-deleted documents
+```cs
+await repository.PermamentlyDeleteSoftDeletedAsync(x => x.Foo == "bar");
+```
 
 ### Transactions
-MongoDB 4 introduced support for multi-document transactions using `Sessions`. We provide a simplified interface:
+MongoDB 4 introduced support for multi-document transactions. We provide a simplified interface, that detects any ambient transaction and uses it for all write/update/delete operations. No need to pass around the session object:
 
 ```csharp
 using (var transaction = await repository.StartTransactionAsync()) {
@@ -202,6 +206,17 @@ using (var transaction = await repository.StartTransactionAsync()) {
 	await transaction.CommitAsync();
 }
 ```
+
+Since version 5 we also support enlisting with a `TransactionScope`. This is useful to be able to put a transactional boundary around MongoDB operations and anything that is compatible with TransactionScopes.
+
+```csharp
+using (var transaction = new TransactionScope(TransactionScopeAsyncFlowOption.Enabled)) {
+	repository.EnlistWithCurrentTransactionScope();
+	// ...
+	transaction.Complete();
+}
+```
+If you configure the repository with `.AutoEnlistWithTransactionScopes()` then it will automatically enlist to any ambient TransactionScope without the need to do it explicitly like in the example above.
 
 
 ## Advanced features

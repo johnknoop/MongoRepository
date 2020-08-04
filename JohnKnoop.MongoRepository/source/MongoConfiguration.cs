@@ -185,11 +185,18 @@ namespace JohnKnoop.MongoRepository
 		internal Dictionary<string, DatabaseConfiguration> GlobalDatabases { get; private set; } = new Dictionary<string, DatabaseConfiguration>();
 		internal Dictionary<string, DatabaseConfiguration> TenantDatabases { get; private set; } = new Dictionary<string, DatabaseConfiguration>();
         private IList<Action<MongoConfigurationBuilder>> _plugins = new List<Action<MongoConfigurationBuilder>>();
+		internal bool ShouldAutoEnlistWithTransactionScopes { get; private set; }
 
-	    public void AddPlugin(Action<MongoConfigurationBuilder> plugin)
+		public void AddPlugin(Action<MongoConfigurationBuilder> plugin)
 	    {
 	        _plugins.Add(plugin);
 	    }
+
+		public MongoConfigurationBuilder AutoEnlistWithTransactionScopes()
+		{
+			ShouldAutoEnlistWithTransactionScopes = true;
+			return this;
+		}
 
 		/// <summary>
 		/// These types will be persisted in database-per-assembly-and-tenant style
@@ -249,7 +256,12 @@ namespace JohnKnoop.MongoRepository
         private static Dictionary<Type, DatabaseCollectionDefinition> _collections = new Dictionary<Type, DatabaseCollectionDefinition>();
         private static ILookup<Type, DatabaseIndexDefinition> _indices;
 	    private static HashSet<Type> _globalTypes;
-		private static readonly ConcurrentDictionary<Type, bool> IndexesAndCapEnsured = new ConcurrentDictionary<Type, bool>();
+		private static bool _shouldAutoEnlistWithTransactionScopes;
+
+		/// <summary>
+		/// Key: {database}.{collection}
+		/// </summary>
+		private static readonly ConcurrentDictionary<string, bool> IndexesAndCapEnsured = new ConcurrentDictionary<string, bool>();
 		private static Dictionary<Type, CappedCollectionConfig> _cappedCollections;
 
 	    internal static void Build(MongoConfigurationBuilder builder, IList<Action<MongoConfigurationBuilder>> plugins)
@@ -332,6 +344,8 @@ namespace JohnKnoop.MongoRepository
 
 		    _globalTypes = new HashSet<Type>(allMappedClasses.Where(x => !x.IsPerTenantDatabase).Select(x => x.Type));
 
+			_shouldAutoEnlistWithTransactionScopes = builder.ShouldAutoEnlistWithTransactionScopes;
+
 		    var conventionPack = new ConventionPack
 		    {
 			    new IgnoreExtraElementsConvention(true),
@@ -340,7 +354,6 @@ namespace JohnKnoop.MongoRepository
 		    };
 
 		    ConventionRegistry.Register("Conventions", conventionPack, type => true);
-
 
 		    foreach (var t in allMappedClasses)
 		    {
@@ -422,9 +435,7 @@ namespace JohnKnoop.MongoRepository
 
             var database = mongoClient.GetDatabase(databaseName);
 
-            var mongoCollection = database.GetCollection<TEntity>(_collections[entityType].CollectionName);
-
-            return mongoCollection;
+            return database.GetCollection<TEntity>(_collections[entityType].CollectionName);
         }
 
         public static IRepository<TEntity> GetRepository<TEntity>(IMongoClient mongoClient, string tenantKey = null)
@@ -432,14 +443,14 @@ namespace JohnKnoop.MongoRepository
 		    var mongoCollection = GetMongoCollection<TEntity>(mongoClient, tenantKey);
 		    var trashCollection = GetMongoCollectionInDatabase<SoftDeletedEntity<TEntity>>(mongoClient, GetDatabaseName(typeof(TEntity), tenantKey));
 
-		    return new MongoRepository<TEntity>(mongoCollection, trashCollection);
+		    return new MongoRepository<TEntity>(mongoCollection, trashCollection, tenantKey, _shouldAutoEnlistWithTransactionScopes);
 		}
 
         private static string WashDatabaseName(string name) {
             return new string(name.Where(letter => letter >= 97 && letter <= 122 || letter >= 65 && letter <= 90).ToArray());
         }
 
-		private static readonly Dictionary<string, IList<string>> DatabaseNamesPerTenant = new Dictionary<string, IList<string>>();
+		private static readonly ConcurrentDictionary<string, IList<string>> DatabaseNamesPerTenant = new ConcurrentDictionary<string, IList<string>>();
 		internal static IList<string> GetDatabaseNames(string tenantKey = null)
 		{
 			if (!_isConfigured)
@@ -452,7 +463,8 @@ namespace JohnKnoop.MongoRepository
 				return DatabaseNamesPerTenant[tenantKey ?? "global"];
 			}
 
-			DatabaseNamesPerTenant[tenantKey ?? "global"] = _collections
+			var databaseNames = _collections
+				.Where(x => x.Key != typeof(SoftDeletedEntity<>))
 				.Select(x => new
 				{
 					IsGlobal = _globalTypes.Contains(x.Key),
@@ -463,7 +475,9 @@ namespace JohnKnoop.MongoRepository
 				.Select(x => x.Key.IsGlobal ? x.Key.DatabaseName : $"{tenantKey}_{x.Key.DatabaseName}")
 				.ToList();
 
-			return DatabaseNamesPerTenant[tenantKey ?? "global"];
+			DatabaseNamesPerTenant.TryAdd(tenantKey ?? "global", databaseNames);
+
+			return databaseNames;
 		}
 
         internal static string GetDatabaseName(Type entityType, string tenantKey = null)
@@ -510,25 +524,28 @@ namespace JohnKnoop.MongoRepository
             }
         }
 
-	    internal static async Task EnsureIndexesAndCap<TEntity>(IMongoCollection<TEntity> mongoCollection)
+	    internal static async Task EnsureIndexesAndCap<TEntity>(IMongoCollection<TEntity> mongoCollection, bool forceCreateCollection = false)
 	    {
 			var entityType = typeof(TEntity);
 
-			if (IndexesAndCapEnsured.ContainsKey(entityType))
+			if (IndexesAndCapEnsured.ContainsKey($"{mongoCollection.Database.DatabaseNamespace.DatabaseName}.{mongoCollection.CollectionNamespace.CollectionName}"))
 		    {
 			    return;
 		    }
 
 			var collectionDefinition = _collections[entityType];
+			var collectionCreated = false;
+
+			var collectionExists = new Lazy<Task<bool>>(async () => 
+				await(
+					await mongoCollection.Database.ListCollectionNamesAsync(
+						new ListCollectionNamesOptions { Filter = new BsonDocument("name", collectionDefinition.CollectionName) } ).ConfigureAwait(false)
+				).AnyAsync().ConfigureAwait(false)
+			);
 
 			// Create capped collection
 
-			if (_cappedCollections.ContainsKey(entityType) &&
-				!(await mongoCollection .Database.ListCollectionsAsync(new ListCollectionsOptions
-				{
-					Filter = new BsonDocument("name", mongoCollection.CollectionNamespace.CollectionName)
-				})).Any()
-			)
+			if (_cappedCollections.ContainsKey(entityType) && !await collectionExists.Value)
 	        {
 	            var capConfig = _cappedCollections[entityType];
 
@@ -538,6 +555,8 @@ namespace JohnKnoop.MongoRepository
                     MaxDocuments = capConfig.MaxDocuments,
                     MaxSize = capConfig.MaxSize ?? 1_000_000_000_000 // One terabyte
 				}).ConfigureAwait(false);
+
+				collectionCreated = true;
 	        }
 
 			// Create index
@@ -562,12 +581,63 @@ namespace JohnKnoop.MongoRepository
 		    {
 				// Collection will be created if it doesn't already exist
 			    await mongoCollection.Indexes.CreateManyAsync(createIndexOptions).ConfigureAwait(false);
+				collectionCreated = true;
 		    }
 
-		    IndexesAndCapEnsured.TryAdd(entityType, true);
+			if (!collectionCreated && forceCreateCollection && !await collectionExists.Value) {
+				await mongoCollection.Database.CreateCollectionAsync(collectionDefinition.CollectionName).ConfigureAwait(false);
+			}
+
+		    IndexesAndCapEnsured.TryAdd($"{mongoCollection.Database.DatabaseNamespace.DatabaseName}.{mongoCollection.CollectionNamespace.CollectionName}", true);
 	    }
 
 	    internal static IList<Type> GetMappedTypes() => _collections.Keys.ToList();
+
+		private static ConcurrentDictionary<string, bool> InitializedTenants = new ConcurrentDictionary<string, bool>();
+		internal static void EnsureCollectionsCreated(IMongoClient client, string tenantKey = null)
+		{
+			if (InitializedTenants.ContainsKey(tenantKey ?? ""))
+			{
+				return;
+			}
+
+			foreach (var dbName in GetDatabaseNames(tenantKey))
+			{
+				var db = client.GetDatabase(dbName);
+
+				var GetCollectionMethod = typeof(IMongoDatabase).GetMethod(nameof(IMongoDatabase.GetCollection));
+
+				// Create collectinos for all mapped types
+
+				foreach (var entityType in GetMappedTypes())
+				{
+					if (entityType == (typeof(SoftDeletedEntity<>)))
+					{
+						continue;
+					}
+					
+					var genenricMethod = GetCollectionMethod.MakeGenericMethod(entityType);
+
+					var collection = genenricMethod
+						.Invoke(db, new object[] { _collections[entityType].CollectionName, null });
+
+					var ensureIndexesMethod = typeof(MongoConfiguration).GetMethod(nameof(MongoConfiguration.EnsureIndexesAndCap), BindingFlags.NonPublic | BindingFlags.Static);
+					var genericEnsureIndexesMethod = ensureIndexesMethod.MakeGenericMethod(entityType);
+
+					var task = (Task)genericEnsureIndexesMethod.Invoke(null, new object[] { collection, true });
+					task.GetAwaiter().GetResult();
+				}
+
+				// Create the trash collection
+
+				if (!db.ListCollectionNames(new ListCollectionNamesOptions { Filter = new BsonDocument("name", "DeletedObjects") }).Any())
+				{
+					db.GetCollection<dynamic>("DeletedObjects").Indexes.CreateOne(new CreateIndexModel<dynamic>(Builders<dynamic>.IndexKeys.Ascending("_t")));
+				}
+			}
+
+			InitializedTenants.TryAdd(tenantKey ?? "", true);
+		}
 	}
 
     public class DecimalToWholeCentsSerializer : IBsonSerializer<decimal>
