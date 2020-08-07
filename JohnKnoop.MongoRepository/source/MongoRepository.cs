@@ -60,7 +60,7 @@ namespace JohnKnoop.MongoRepository
 
 	public class MongoRepository<TEntity> : IRepository<TEntity>
 	{
-		protected readonly IMongoCollection<TEntity> MongoCollection;
+		protected IMongoCollection<TEntity> MongoCollection;
 		private readonly IMongoCollection<SoftDeletedEntity<TEntity>> _trash;
 
 		private static AsyncLocal<IClientSessionHandle> _ambientSession = new AsyncLocal<IClientSessionHandle>();
@@ -79,6 +79,12 @@ namespace JohnKnoop.MongoRepository
 			this._trash = trash;
 			_tenantKey = tenantKey;
 			_autoEnlistWithCurrentTransactionScope = autoEnlistWithCurrentTransactionScope;
+		}
+
+		public IRepository<TEntity> WithReadPreference(ReadPreference readPreference)
+		{
+			this.MongoCollection = this.MongoCollection.WithReadPreference(readPreference);
+			return this;
 		}
 
 		public async Task DeletePropertyAsync(Expression<Func<TEntity, bool>> filterExpression, Expression<Func<TEntity, object>> propertyExpression)

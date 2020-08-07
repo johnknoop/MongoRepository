@@ -172,6 +172,7 @@ namespace JohnKnoop.MongoRepository
 		/// </summary>
 		void EnlistWithCurrentTransactionScope();
 		Transaction StartTransaction(ClientSessionOptions sessionOptions = null, MongoDB.Driver.TransactionOptions transactionOptions = null);
+		IRepository<TEntity> WithReadPreference(ReadPreference readPreference);
 	}
 
 	public class TransactionEnlistment : IEnlistmentNotification
