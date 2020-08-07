@@ -198,10 +198,10 @@ await repository.PermamentlyDeleteSoftDeletedAsync(x => x.Foo == "bar");
 ```
 
 ### Transactions
-MongoDB 4 introduced support for multi-document transactions. We provide a simplified interface, that detects any ambient transaction and uses it for all write/update/delete operations. No need to pass around the session object:
+MongoDB 4 introduced support for multi-document transactions. We provide a simplified interface: you don't have to pass around the session object. Instead we detect any ambient transaction and uses it for all write/update/delete operations.:
 
 ```csharp
-using (var transaction = await repository.StartTransactionAsync()) {
+using (var transaction = repository.StartTransaction()) {
 	// ...
 	await transaction.CommitAsync();
 }
