@@ -601,27 +601,33 @@ namespace JohnKnoop.MongoRepository
 				return;
 			}
 
-			foreach (var dbName in GetDatabaseNames(tenantKey))
+			var GetCollectionMethod = typeof(IMongoDatabase).GetMethod(nameof(IMongoDatabase.GetCollection));
+
+			var collectionsByDatabase = _collections
+				.Where(x => x.Key != typeof(SoftDeletedEntity<>))
+				.GroupBy(x => GetDatabaseName(x.Key, tenantKey), kvp => new { 
+					Type = kvp.Key,
+					Definition = kvp.Value
+				})
+				.ToDictionary(x => x.Key, x => x.ToList());
+
+			foreach (var kvp in collectionsByDatabase)
 			{
-				var db = client.GetDatabase(dbName);
+				var qualifiedDbName = kvp.Key;
+				var collectionsInDb = kvp.Value;
+				var db = client.GetDatabase(qualifiedDbName);
 
-				var GetCollectionMethod = typeof(IMongoDatabase).GetMethod(nameof(IMongoDatabase.GetCollection));
-
-				// Create collectinos for all mapped types
-
-				foreach (var entityType in GetMappedTypes())
+				foreach (var typeDef in collectionsInDb)
 				{
-					if (entityType == (typeof(SoftDeletedEntity<>)))
-					{
-						continue;
-					}
-					
+					var entityType = typeDef.Type;
+
 					var genenricMethod = GetCollectionMethod.MakeGenericMethod(entityType);
 
 					var collection = genenricMethod
 						.Invoke(db, new object[] { _collections[entityType].CollectionName, null });
 
-					var ensureIndexesMethod = typeof(MongoConfiguration).GetMethod(nameof(MongoConfiguration.EnsureIndexesAndCap), BindingFlags.NonPublic | BindingFlags.Static);
+					var ensureIndexesMethod = typeof(MongoConfiguration)
+						.GetMethod(nameof(MongoConfiguration.EnsureIndexesAndCap), BindingFlags.NonPublic | BindingFlags.Static);
 					var genericEnsureIndexesMethod = ensureIndexesMethod.MakeGenericMethod(entityType);
 
 					var task = (Task)genericEnsureIndexesMethod.Invoke(null, new object[] { collection, true });
@@ -632,7 +638,8 @@ namespace JohnKnoop.MongoRepository
 
 				if (!db.ListCollectionNames(new ListCollectionNamesOptions { Filter = new BsonDocument("name", "DeletedObjects") }).Any())
 				{
-					db.GetCollection<dynamic>("DeletedObjects").Indexes.CreateOne(new CreateIndexModel<dynamic>(Builders<dynamic>.IndexKeys.Ascending("_t")));
+					db.GetCollection<dynamic>("DeletedObjects").Indexes
+						.CreateOne(new CreateIndexModel<dynamic>(Builders<dynamic>.IndexKeys.Ascending("_t")));
 				}
 			}
 
