@@ -2,7 +2,7 @@
 
 	<PropertyGroup>
 		<TargetFramework>netstandard2.0</TargetFramework>
-		<Version>5.0.0-beta.1</Version>
+		<Version>5.0.0-beta.3</Version>
 		<Description>An easily configurable repository for MongoDB with support for multi-tenancy</Description>
 		<PackageProjectUrl>https://github.com/johnknoop/MongoRepository</PackageProjectUrl>
 		<PackageTags>repository mongodb multitenant</PackageTags>
@@ -10,13 +10,15 @@
 		<LangVersion>7.1</LangVersion>
 		<PackageReleaseNotes>Revamped transaction API.
 
-Removed StartSessionAsync</PackageReleaseNotes>
+Removed StartSessionAsync
+
+Add WithReadPreference.</PackageReleaseNotes>
 	</PropertyGroup>
 
 	<ItemGroup>
-		<PackageReference Include="MongoDB.Bson" version="2.8.1" />
-		<PackageReference Include="MongoDB.Driver" version="2.8.1" />
-		<PackageReference Include="MongoDB.Driver.Core" version="2.8.1" />
+		<PackageReference Include="MongoDB.Bson" version="2.10.1" />
+		<PackageReference Include="MongoDB.Driver" version="2.10.1" />
+		<PackageReference Include="MongoDB.Driver.Core" version="2.10.1" />
 		<PackageReference Include="Newtonsoft.Json" version="12.0.2" />
 		<PackageReference Include="System.Threading.Tasks.Extensions" Version="4.5.4" />
 	</ItemGroup>
