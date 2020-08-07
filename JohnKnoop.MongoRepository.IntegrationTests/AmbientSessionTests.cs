@@ -66,8 +66,6 @@ namespace JohnKnoop.MongoRepository.IntegrationTests
 			_mongoClient.GetRepository<DummyEntity>().PermamentlyDeleteSoftDeletedAsync(x => true).Wait();
 		}
 
-		// Testa att WithTransaction funkar. Både med explicit och transactionscope
-
 		// DeleteManyAsync
 		// DeleteByIdAsync
 
