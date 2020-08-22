@@ -224,6 +224,29 @@ namespace JohnKnoop.MongoRepository
 			_onCompleted = onCompleted;
 		}
 
+		public async Task RetryAsync(Func<Task> transactionBody, int maxRetries = default)
+		{
+			var tries = 0;
+
+			while (true)
+			{
+				try
+				{
+					await transactionBody();
+					return;
+				}
+				catch (MongoException ex) when (ex.HasErrorLabel("TransientTransactionError"))
+				{
+					if (maxRetries != default && tries >= maxRetries)
+					{
+						throw;
+					}
+
+					tries++;
+				}
+			}
+		}
+
 		public async Task CommitAsync(CancellationToken cancellation = default)
 		{
 			await _session.CommitTransactionAsync(cancellation);
