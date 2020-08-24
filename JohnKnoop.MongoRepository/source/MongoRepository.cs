@@ -6,6 +6,7 @@ using System.Linq.Expressions;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Transactions;
+using JohnKnoop.MongoRepository.Extensions;
 using MongoDB.Bson;
 using MongoDB.Bson.Serialization;
 using MongoDB.Bson.Serialization.Serializers;
@@ -1039,46 +1040,15 @@ namespace JohnKnoop.MongoRepository
 			return result.DeletedCount;
 		}
 
-		public async Task WithTransactionAsync(Func<Task> transactionBody, TransactionType type = TransactionType.MongoDB, int? maxRetries = null)
+		public async Task WithTransactionAsync(Func<Task> transactionBody, TransactionType type = TransactionType.MongoDB, int maxRetries = 0)
 		{
-			async Task Retry(int maxTimes)
-			{
-				var tries = 0;
-
-				while (true)
-				{
-					try
-					{
-						await transactionBody();
-						return;
-					}
-					catch (MongoException ex) when (ex.HasErrorLabel("TransientTransactionError"))
-					{
-						if (maxTimes != 0 && tries >= maxTimes)
-						{
-							throw;
-						}
-
-						tries++;
-					}
-				}
-			}
-
 			if (type == TransactionType.TransactionScope)
 			{
 				using (var trans = new TransactionScope(TransactionScopeAsyncFlowOption.Enabled))
 				{
 					EnlistWithCurrentTransactionScope();
 
-					if (maxRetries != null)
-					{
-						await Retry(maxRetries.Value);
-					}
-					else
-					{
-						await transactionBody();
-					}
-
+					await trans.RetryAsync(async (t) => await transactionBody(), maxRetries);
 					trans.Complete();
 				}
 			}
@@ -1086,15 +1056,7 @@ namespace JohnKnoop.MongoRepository
 			{
 				using (var transaction = StartTransaction())
 				{
-					if (maxRetries != null)
-					{
-						await Retry(maxRetries.Value);
-					}
-					else
-					{
-						await transactionBody();
-					}
-
+					await transaction.RetryAsync(transactionBody, maxRetries);
 					await transaction.CommitAsync();
 				}
 			}

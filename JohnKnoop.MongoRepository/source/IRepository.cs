@@ -178,8 +178,8 @@ namespace JohnKnoop.MongoRepository
 		/// Starts a new transaction and executes the provided delegate.
 		/// Will retry on TransientTransactionError.
 		/// </summary>
-		/// <param name="maxRetries">If null, no retrying will be done at all. If 0, it will retry forever.</param>
-		Task WithTransactionAsync(Func<Task> transactionBody, TransactionType type = TransactionType.MongoDB, int? maxRetries = null);
+		/// <param name="maxRetries">If 0, it will retry forever.</param>
+		Task WithTransactionAsync(Func<Task> transactionBody, TransactionType type = TransactionType.MongoDB, int maxRetries = default);
 	}
 
 	public enum TransactionType
@@ -199,7 +199,7 @@ namespace JohnKnoop.MongoRepository
 
 		public void Commit(Enlistment enlistment)
 		{
-			_session.CommitTransaction();
+			Retryer.Retry(() => _session.CommitTransaction());
 			enlistment.Done();
 		}
 
@@ -228,7 +228,7 @@ namespace JohnKnoop.MongoRepository
 		private bool _isCompleted = false;
 
 		public IClientSessionHandle Session => _session;
-		
+
 		internal delegate void OnTransactionCompleted(bool committed);
 
 		internal Transaction(IClientSessionHandle session, OnTransactionCompleted onCompleted)
@@ -237,32 +237,12 @@ namespace JohnKnoop.MongoRepository
 			_onCompleted = onCompleted;
 		}
 
-		public async Task RetryAsync(Func<Task> transactionBody, int maxRetries = default)
-		{
-			var tries = 0;
-
-			while (true)
-			{
-				try
-				{
-					await transactionBody();
-					return;
-				}
-				catch (MongoException ex) when (ex.HasErrorLabel("TransientTransactionError"))
-				{
-					if (maxRetries != default && tries >= maxRetries)
-					{
-						throw;
-					}
-
-					tries++;
-				}
-			}
-		}
+		public Task RetryAsync(Func<Task> transactionBody, int maxRetries = default) =>
+			Retryer.RetryAsync(transactionBody, maxRetries);
 
 		public async Task CommitAsync(CancellationToken cancellation = default)
 		{
-			await _session.CommitTransactionAsync(cancellation);
+			await Retryer.RetryAsync(async() => await _session.CommitTransactionAsync(cancellation));
 			_onCompleted(true);
 			_isCompleted = true;
 		}
@@ -281,6 +261,59 @@ namespace JohnKnoop.MongoRepository
 			if (!_isCompleted)
 			{
 				_onCompleted(false); 
+			}
+		}
+	}
+
+	internal static class Retryer
+	{
+		private static readonly TimeSpan TransactionTimeout = TimeSpan.FromSeconds(120);
+
+		public static async Task RetryAsync(Func<Task> transactionBody, int maxRetries = default)
+		{
+			var tries = 0;
+			var startTime = DateTime.UtcNow;
+
+			while (true)
+			{
+				try
+				{
+					await transactionBody();
+					return;
+				}
+				catch (MongoException ex) when (ex.HasErrorLabel("TransientTransactionError"))
+				{
+					if (maxRetries != default && tries >= maxRetries &&	DateTime.UtcNow - startTime < TransactionTimeout)
+					{
+						throw;
+					}
+
+					tries++;
+				}
+			}
+		}
+
+		public static async Task Retry(Action transactionBody, int maxRetries = default)
+		{
+			var tries = 0;
+			var startTime = DateTime.UtcNow;
+
+			while (true)
+			{
+				try
+				{
+					transactionBody();
+					return;
+				}
+				catch (MongoException ex) when (ex.HasErrorLabel("TransientTransactionError"))
+				{
+					if (maxRetries != default && tries >= maxRetries &&	DateTime.UtcNow - startTime < TransactionTimeout)
+					{
+						throw;
+					}
+
+					tries++;
+				}
 			}
 		}
 	}
