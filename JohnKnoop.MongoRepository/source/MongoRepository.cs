@@ -880,6 +880,12 @@ namespace JohnKnoop.MongoRepository
 
 		public void EnlistWithCurrentTransactionScope()
 		{
+			if (_ambientSession.Value != null)
+			{
+				// Already enlisted
+				return;
+			}
+
 			if (System.Transactions.Transaction.Current == null)
 			{
 				throw new InvalidOperationException("There is no ambient transaction present");
