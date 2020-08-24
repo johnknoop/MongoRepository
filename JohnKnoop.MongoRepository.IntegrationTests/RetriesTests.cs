@@ -57,16 +57,13 @@ namespace JohnKnoop.MongoRepository.IntegrationTests
 		public async Task TransactionScope_WithoutMaxRetries_ShouldRetryUntilSuccessful()
 		{
 			var throwingDummy = new ThrowingDummy(4);
+			var repo = _mongoClient.GetRepository<MyStandaloneEntity>();
 
-			using (var trans = new TransactionScope(TransactionScopeAsyncFlowOption.Enabled))
-			{
-				await trans.RetryAsync(async t =>
+			await repo.WithTransactionAsync(async () =>
 				{
 					throwingDummy.TryMe();
-					await _mongoClient.GetRepository<MyStandaloneEntity>().InsertAsync(new MyStandaloneEntity("test", new SharedClass("test")));
-					trans.Complete();
-				});
-			}
+					await repo.InsertAsync(new MyStandaloneEntity("test", new SharedClass("test")));
+				}, TransactionType.TransactionScope, maxRetries: 0);
 
 			var allSaved = await _mongoClient.GetRepository<MyStandaloneEntity>().GetAll().ToListAsync();
 
@@ -77,18 +74,15 @@ namespace JohnKnoop.MongoRepository.IntegrationTests
 		public async Task TransactionScope_WithMaxRetries_ShouldRetryUntilMaxRetriesReached()
 		{
 			var throwingDummy = new ThrowingDummy(5);
+			var repo = _mongoClient.GetRepository<MyStandaloneEntity>();
 
 			await Assert.ThrowsAsync<MongoException>(async () =>
 			{
-				using (var trans = new TransactionScope(TransactionScopeAsyncFlowOption.Enabled))
+				await repo.WithTransactionAsync(async () =>
 				{
-					await trans.RetryAsync(async t =>
-					{
-						throwingDummy.TryMe();
-						await _mongoClient.GetRepository<MyStandaloneEntity>().InsertAsync(new MyStandaloneEntity("test", new SharedClass("test")));
-						trans.Complete();
-					}, maxRetries: 3);
-				}
+					throwingDummy.TryMe();
+					await repo.InsertAsync(new MyStandaloneEntity("test", new SharedClass("test")));
+				}, TransactionType.TransactionScope, maxRetries: 3);
 			});
 
 			var allSaved = await _mongoClient.GetRepository<MyStandaloneEntity>().GetAll().ToListAsync();
@@ -102,15 +96,11 @@ namespace JohnKnoop.MongoRepository.IntegrationTests
 			var throwingDummy = new ThrowingDummy(4);
 			var repo = _mongoClient.GetRepository<MyStandaloneEntity>();
 
-			using (var trans = repo.StartTransaction())
+			await repo.WithTransactionAsync(async () =>
 			{
-				await trans.RetryAsync(async () =>
-				{
-					throwingDummy.TryMe();
-					await repo.InsertAsync(new MyStandaloneEntity("test", new SharedClass("test")));
-					await trans.CommitAsync();
-				});
-			}
+				throwingDummy.TryMe();
+				await repo.InsertAsync(new MyStandaloneEntity("test", new SharedClass("test")));
+			}, maxRetries: 0);
 
 			var allSaved = await _mongoClient.GetRepository<MyStandaloneEntity>().GetAll().ToListAsync();
 
@@ -125,15 +115,11 @@ namespace JohnKnoop.MongoRepository.IntegrationTests
 
 			await Assert.ThrowsAsync<MongoException>(async () =>
 			{
-				using (var trans = repo.StartTransaction())
+				await repo.WithTransactionAsync(async () =>
 				{
-					await trans.RetryAsync(async () =>
-					{
-						throwingDummy.TryMe();
-						await repo.InsertAsync(new MyStandaloneEntity("test", new SharedClass("test")));
-						await trans.CommitAsync();
-					}, maxRetries: 3);
-				}
+					throwingDummy.TryMe();
+					await repo.InsertAsync(new MyStandaloneEntity("test", new SharedClass("test")));
+				}, maxRetries: 3);
 			});
 
 			var allSaved = await _mongoClient.GetRepository<MyStandaloneEntity>().GetAll().ToListAsync();

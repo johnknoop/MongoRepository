@@ -5,6 +5,7 @@ using System.Linq;
 using System.Linq.Expressions;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Transactions;
 using MongoDB.Bson;
 using MongoDB.Bson.Serialization;
 using MongoDB.Bson.Serialization.Serializers;
@@ -897,7 +898,7 @@ namespace JohnKnoop.MongoRepository
 			System.Transactions.Transaction.Current.EnlistVolatile(enlistment, System.Transactions.EnlistmentOptions.None);
 		}
 
-		public Transaction StartTransaction(ClientSessionOptions sessionOptions = null, TransactionOptions transactionOptions = null)
+		public Transaction StartTransaction(ClientSessionOptions sessionOptions = null, MongoDB.Driver.TransactionOptions transactionOptions = null)
 		{
 			MongoRepository.EnsureCollectionsCreated(MongoCollection.Database.Client, _tenantKey);
 
@@ -1030,6 +1031,67 @@ namespace JohnKnoop.MongoRepository
 		{
 			var result = await _trash.DeleteManyAsync(filter);
 			return result.DeletedCount;
+		}
+
+		public async Task WithTransactionAsync(Func<Task> transactionBody, TransactionType type = TransactionType.MongoDB, int? maxRetries = null)
+		{
+			async Task Retry(int maxTimes)
+			{
+				var tries = 0;
+
+				while (true)
+				{
+					try
+					{
+						await transactionBody();
+						return;
+					}
+					catch (MongoException ex) when (ex.HasErrorLabel("TransientTransactionError"))
+					{
+						if (maxTimes != 0 && tries >= maxTimes)
+						{
+							throw;
+						}
+
+						tries++;
+					}
+				}
+			}
+
+			if (type == TransactionType.TransactionScope)
+			{
+				using (var trans = new TransactionScope(TransactionScopeAsyncFlowOption.Enabled))
+				{
+					EnlistWithCurrentTransactionScope();
+
+					if (maxRetries != null)
+					{
+						await Retry(maxRetries.Value);
+					}
+					else
+					{
+						await transactionBody();
+					}
+
+					trans.Complete();
+				}
+			}
+			else
+			{
+				using (var transaction = StartTransaction())
+				{
+					if (maxRetries != null)
+					{
+						await Retry(maxRetries.Value);
+					}
+					else
+					{
+						await transactionBody();
+					}
+
+					await transaction.CommitAsync();
+				}
+			}
 		}
 	}
 

@@ -173,6 +173,19 @@ namespace JohnKnoop.MongoRepository
 		void EnlistWithCurrentTransactionScope();
 		Transaction StartTransaction(ClientSessionOptions sessionOptions = null, MongoDB.Driver.TransactionOptions transactionOptions = null);
 		IRepository<TEntity> WithReadPreference(ReadPreference readPreference);
+
+		/// <summary>
+		/// Starts a new transaction and executes the provided delegate.
+		/// Will retry on TransientTransactionError.
+		/// </summary>
+		/// <param name="maxRetries">If null, no retrying will be done at all. If 0, it will retry forever.</param>
+		Task WithTransactionAsync(Func<Task> transactionBody, TransactionType type = TransactionType.MongoDB, int? maxRetries = null);
+	}
+
+	public enum TransactionType
+	{
+		MongoDB,
+		TransactionScope
 	}
 
 	public class TransactionEnlistment : IEnlistmentNotification

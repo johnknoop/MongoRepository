@@ -218,27 +218,20 @@ using (var transaction = new TransactionScope(TransactionScopeAsyncFlowOption.En
 ```
 If you configure the repository with `.AutoEnlistWithTransactionScopes()` then it will automatically enlist to any ambient TransactionScope without the need to do it explicitly like in the example above.
 
-MongoDB replica sets sometimes encounter transient transaction errors, in which case the recommended course of action from the MongoDB team is to simply retry until it succeeds:
+MongoDB replica sets sometimes encounter transient transaction errors, in which case the recommended course of action from the MongoDB team is to simply retry until it succeeds. We offer a shorthand for this:
 
 ```csharp
-// Retry with transaction scope
-using (var transaction = new TransactionScope(TransactionScopeAsyncFlowOption.Enabled)) {
-	await transaction.RetryAsync(async t =>
-	{
-		// [...]
-		transaction.Complete();
-	});
-}
-
-// Retry using StartTransaction
-using (var transaction = repo.StartTransaction())
+// Retry using standard MongoDB transaction
+await repo.WithTransactionAsync(async () =>
 {
-	await transaction.RetryAsync(async () =>
-	{
-		// [...]
-		await transaction.CommitAsync();
-	});
-}
+	// your code here
+}, maxRetries: 3);
+
+// Retry using TransactionScope
+await repo.WithTransactionAsync(async () =>
+{
+	// your code here
+}, TransactionType.TransactionScope, maxRetries: 3);
 ```
 
 `RetryAsync` also comes with an overload that takes a number representing the max number of retries.
