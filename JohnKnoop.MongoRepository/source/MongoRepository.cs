@@ -1028,15 +1028,26 @@ namespace JohnKnoop.MongoRepository
 			return this.MongoCollection.OfType<TDerivedEntity>().AsQueryable();
 		}
 
-		public async Task<TEntity> GetAsync(string objectId) => await GetAsync<TEntity>(objectId).ConfigureAwait(false);
-
-		public async Task<T> GetAsync<T>(string objectId) where T : TEntity
+		public async Task<TEntity> GetAsync(string objectId)
 		{
 			if (objectId == null) throw new ArgumentNullException(nameof(objectId));
 
 			var filter = new BsonDocument("_id", ObjectId.Parse(objectId));
 
-			return await this.MongoCollection.Find(filter).As<T>().FirstOrDefaultAsync().ConfigureAwait(false);
+			var cursor = await this.MongoCollection.FindAsync(filter).ConfigureAwait(false);
+
+			return await cursor.FirstOrDefaultAsync().ConfigureAwait(false);
+		}
+
+		public async Task<TDerivedEntity> GetAsync<TDerivedEntity>(string objectId) where TDerivedEntity : TEntity
+		{
+			if (objectId == null) throw new ArgumentNullException(nameof(objectId));
+
+			var filter = new BsonDocument("_id", ObjectId.Parse(objectId));
+
+			var cursor = await this.MongoCollection.OfType<TDerivedEntity>().FindAsync(filter).ConfigureAwait(false);
+
+			return await cursor.FirstOrDefaultAsync().ConfigureAwait(false);
 		}
 
 		public async Task<TReturnProjection> GetAsync<TReturnProjection>(string objectId, Expression<Func<TEntity, TReturnProjection>> returnProjection)
@@ -1045,7 +1056,11 @@ namespace JohnKnoop.MongoRepository
 
 			var filter = new BsonDocument("_id", ObjectId.Parse(objectId));
 
-			return await this.MongoCollection.Find(filter).Project(returnProjection).FirstOrDefaultAsync().ConfigureAwait(false);
+			var cursor = await this.MongoCollection.FindAsync(filter, new FindOptions<TEntity, TReturnProjection> {
+				Projection = Builders<TEntity>.Projection.Expression(returnProjection)
+			}).ConfigureAwait(false);
+
+			return await cursor.FirstOrDefaultAsync().ConfigureAwait(false);
 		}
 
 		public async Task<TReturnProjection> GetAsync<TDerivedEntity, TReturnProjection>(string objectId, Expression<Func<TDerivedEntity, TReturnProjection>> returnProjection) where TDerivedEntity : TEntity
@@ -1054,7 +1069,11 @@ namespace JohnKnoop.MongoRepository
 
 			var filter = new BsonDocument("_id", ObjectId.Parse(objectId));
 
-			return await this.MongoCollection.OfType<TDerivedEntity>().Find(filter).Project(returnProjection).FirstOrDefaultAsync().ConfigureAwait(false);
+			var cursor = await this.MongoCollection.OfType<TDerivedEntity>().FindAsync(filter, new FindOptions<TDerivedEntity, TReturnProjection> {
+				Projection = Builders<TDerivedEntity>.Projection.Expression(returnProjection)
+			}).ConfigureAwait(false);
+
+			return await cursor.FirstOrDefaultAsync().ConfigureAwait(false);
 		}
 
 		public async Task<IFindFluent<TEntity, TEntity>> TextSearch(string text)
