@@ -917,6 +917,7 @@ namespace JohnKnoop.MongoRepository
 			return new Transaction(session, committed => _ambientSession.Value = null);
 		}
 
+		#region Find
 		public IFindFluent<TDerivedEntity, TDerivedEntity> Find<TDerivedEntity>(FilterDefinition<TDerivedEntity> filter) where TDerivedEntity : TEntity
 		{
 			return this.MongoCollection.OfType<TDerivedEntity>().Find(filter);
@@ -988,6 +989,34 @@ namespace JohnKnoop.MongoRepository
 		{
 			return this.MongoCollection.OfType<TDerivedEntity>().Find(filterExpression);
 		}
+		#endregion
+
+		#region FIndAsync
+		public Task<IAsyncCursor<TEntity>> FindAsync(Expression<Func<TEntity, bool>> filter)
+		{
+			return this.MongoCollection.FindAsync(filter);
+		}
+
+		public Task<IAsyncCursor<TDerivedEntity>> FindAsync<TDerivedEntity>(Expression<Func<TEntity, bool>> filter) where TDerivedEntity : TEntity
+		{
+			return this.MongoCollection.FindAsync<TDerivedEntity>(filter);
+		}
+
+		public Task<IAsyncCursor<TReturnProjection>> FindAsync<TReturnProjection>(Expression<Func<TEntity, bool>> filter, Expression<Func<TEntity, TReturnProjection>> returnProjection)
+		{
+			return this.MongoCollection.FindAsync(filter, new FindOptions<TEntity, TReturnProjection>{
+				Projection = Builders<TEntity>.Projection.Expression(returnProjection)
+			});
+		}
+
+		public Task<IAsyncCursor<TReturnProjection>> FindAsync<TDerivedEntity, TReturnProjection>(Expression<Func<TDerivedEntity, bool>> filter, Expression<Func<TDerivedEntity, TReturnProjection>> returnProjection) where TDerivedEntity : TEntity
+		{
+			return this.MongoCollection.OfType<TDerivedEntity>().FindAsync(filter, new FindOptions<TDerivedEntity, TReturnProjection>{
+				Projection = Builders<TDerivedEntity>.Projection.Expression(returnProjection)
+			});
+		} 
+		#endregion
+
 
 		public IMongoQueryable<TEntity> Query()
 		{
