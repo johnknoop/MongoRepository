@@ -608,6 +608,13 @@ namespace JohnKnoop.MongoRepository
 		private static ConcurrentDictionary<string, bool> InitializedTenants = new ConcurrentDictionary<string, bool>();
 		internal static void EnsureCollectionsCreated(IMongoClient client, string tenantKey = null)
 		{
+			/*
+			 Pre MongoDB v4.4, collections cannot be created within a transaction,
+			 hence this method.
+
+			 Down the line, we'll probably drop this and expect users to run a recent version of MongoDB.
+			 */
+
 			if (InitializedTenants.ContainsKey(tenantKey ?? ""))
 			{
 				return;
@@ -653,6 +660,13 @@ namespace JohnKnoop.MongoRepository
 				{
 					db.GetCollection<dynamic>("DeletedObjects").Indexes
 						.CreateOne(new CreateIndexModel<dynamic>(Builders<dynamic>.IndexKeys.Ascending("_t")));
+				}
+
+				// Create the _counters collection
+
+				if (!db.ListCollectionNames(new ListCollectionNamesOptions { Filter = new BsonDocument("name", "_counters") }).Any())
+				{
+					db.CreateCollection("_counters");
 				}
 			}
 
