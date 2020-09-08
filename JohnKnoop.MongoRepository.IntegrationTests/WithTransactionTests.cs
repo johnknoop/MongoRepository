@@ -35,11 +35,11 @@ namespace JohnKnoop.MongoRepository.IntegrationTests
 	}
 
 	[CollectionDefinition("IntegrationTests", DisableParallelization = true)]
-	public class RetriesTests : IClassFixture<LaunchSettingsFixture>
+	public class WithTransactionTests : IClassFixture<LaunchSettingsFixture>
 	{
 		private readonly MongoClient _mongoClient;
 
-		public RetriesTests(LaunchSettingsFixture launchSettingsFixture)
+		public WithTransactionTests(LaunchSettingsFixture launchSettingsFixture)
 		{
 			MongoRepository.Configure()
 				.Database("TestDb", x => x
