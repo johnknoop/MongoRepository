@@ -991,15 +991,15 @@ namespace JohnKnoop.MongoRepository
 		}
 		#endregion
 
-		#region FIndAsync
+		#region FindAsync
 		public Task<IAsyncCursor<TEntity>> FindAsync(Expression<Func<TEntity, bool>> filter)
 		{
 			return this.MongoCollection.FindAsync(filter);
 		}
 
-		public Task<IAsyncCursor<TDerivedEntity>> FindAsync<TDerivedEntity>(Expression<Func<TEntity, bool>> filter) where TDerivedEntity : TEntity
+		public Task<IAsyncCursor<TDerivedEntity>> FindAsync<TDerivedEntity>(Expression<Func<TDerivedEntity, bool>> filter) where TDerivedEntity : TEntity
 		{
-			return this.MongoCollection.FindAsync<TDerivedEntity>(filter);
+			return this.MongoCollection.OfType<TDerivedEntity>().FindAsync(filter);
 		}
 
 		public Task<IAsyncCursor<TReturnProjection>> FindAsync<TReturnProjection>(Expression<Func<TEntity, bool>> filter, Expression<Func<TEntity, TReturnProjection>> returnProjection)
@@ -1017,6 +1017,31 @@ namespace JohnKnoop.MongoRepository
 		} 
 		#endregion
 
+		#region FindOneAsync
+		public async Task<TEntity> FindOneAsync(Expression<Func<TEntity, bool>> filter)
+		{
+			return await (await this.MongoCollection.FindAsync(filter)).FirstOrDefaultAsync();
+		}
+
+		public async Task<TDerivedEntity> FindOneAsync<TDerivedEntity>(Expression<Func<TDerivedEntity, bool>> filter) where TDerivedEntity : TEntity
+		{
+			return await (await this.MongoCollection.OfType<TDerivedEntity>().FindAsync(filter)).FirstOrDefaultAsync();
+		}
+
+		public async Task<TReturnProjection> FindOneAsync<TReturnProjection>(Expression<Func<TEntity, bool>> filter, Expression<Func<TEntity, TReturnProjection>> returnProjection)
+		{
+			return await (await this.MongoCollection.FindAsync(filter, new FindOptions<TEntity, TReturnProjection>{
+				Projection = Builders<TEntity>.Projection.Expression(returnProjection)
+			})).FirstOrDefaultAsync();
+		}
+
+		public async Task<TReturnProjection> FindOneAsync<TDerivedEntity, TReturnProjection>(Expression<Func<TDerivedEntity, bool>> filter, Expression<Func<TDerivedEntity, TReturnProjection>> returnProjection) where TDerivedEntity : TEntity
+		{
+			return await (await this.MongoCollection.OfType<TDerivedEntity>().FindAsync(filter, new FindOptions<TDerivedEntity, TReturnProjection>{
+				Projection = Builders<TDerivedEntity>.Projection.Expression(returnProjection)
+			})).FirstOrDefaultAsync();
+		} 
+		#endregion
 
 		public IMongoQueryable<TEntity> Query()
 		{

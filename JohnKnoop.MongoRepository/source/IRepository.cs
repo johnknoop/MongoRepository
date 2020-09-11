@@ -68,9 +68,14 @@ namespace JohnKnoop.MongoRepository
 		IFindFluent<TDerivedEntity, TDerivedEntity> Find<TDerivedEntity>(IEnumerable<FieldDefinition<TDerivedEntity>> properties, string regexPattern, string regexOptions = "i") where TDerivedEntity : TEntity;
 
 		Task<IAsyncCursor<TEntity>> FindAsync(Expression<Func<TEntity, bool>> filter);
-		Task<IAsyncCursor<TDerivedEntity>> FindAsync<TDerivedEntity>(Expression<Func<TEntity, bool>> filter) where TDerivedEntity : TEntity;
+		Task<IAsyncCursor<TDerivedEntity>> FindAsync<TDerivedEntity>(Expression<Func<TDerivedEntity, bool>> filter) where TDerivedEntity : TEntity;
 		Task<IAsyncCursor<TReturnProjection>> FindAsync<TReturnProjection>(Expression<Func<TEntity, bool>> filter, Expression<Func<TEntity, TReturnProjection>> returnProjection);
 		Task<IAsyncCursor<TReturnProjection>> FindAsync<TDerivedEntity, TReturnProjection>(Expression<Func<TDerivedEntity, bool>> filter, Expression<Func<TDerivedEntity, TReturnProjection>> returnProjection) where TDerivedEntity : TEntity;
+
+		Task<TEntity> FindOneAsync(Expression<Func<TEntity, bool>> filter);
+		Task<TDerivedEntity> FindOneAsync<TDerivedEntity>(Expression<Func<TDerivedEntity, bool>> filter) where TDerivedEntity : TEntity;
+		Task<TReturnProjection> FindOneAsync<TReturnProjection>(Expression<Func<TEntity, bool>> filter, Expression<Func<TEntity, TReturnProjection>> returnProjection);
+		Task<TReturnProjection> FindOneAsync<TDerivedEntity, TReturnProjection>(Expression<Func<TDerivedEntity, bool>> filter, Expression<Func<TDerivedEntity, TReturnProjection>> returnProjection) where TDerivedEntity : TEntity;
 
 		IFindFluent<TEntity, TEntity> Find(FilterDefinition<TEntity> filter);
 
