@@ -1134,6 +1134,72 @@ namespace JohnKnoop.MongoRepository
 				}
 			}
 		}
+
+		#region FindOneAndDelete
+
+		public Task<TEntity> FindOneAndDeleteAsync(string id, bool softDelete = false)
+		{
+			if (id is null)
+			{
+				throw new ArgumentNullException(nameof(id));
+			}
+
+			var filter = new BsonDocumentFilterDefinition<TEntity>(new BsonDocument("_id", ObjectId.Parse(id)));
+
+			return FindOneAndDeleteImplAsync(MongoCollection, filter, softDelete);
+		}
+
+		public Task<TEntity> FindOneAndDeleteAsync(Expression<Func<TEntity, bool>> filter, bool softDelete = false)
+		{
+			return FindOneAndDeleteImplAsync(MongoCollection, Builders<TEntity>.Filter.Where(filter), softDelete);
+		}
+
+		private async Task<TDerived> FindOneAndDeleteImplAsync<TDerived>(IMongoCollection<TDerived> collection, FilterDefinition<TDerived> filter, bool softDelete = false) where TDerived : TEntity
+		{
+			TryAutoEnlistWithCurrentTransactionScope();
+
+			if (softDelete)
+			{
+				return await WithTransaction(async session =>
+				{
+					var entity = await collection.FindOneAndDeleteAsync(session, filter).ConfigureAwait(false);
+
+					if (entity == null)
+					{
+						return default;
+					}
+
+					await this._trash.InsertOneAsync(session, new DeletedObject<TEntity>(entity, this.MongoCollection.CollectionNamespace.CollectionName, DateTime.UtcNow)).ConfigureAwait(false);
+
+					return entity;
+				});
+			}
+			else
+			{
+				return (AmbientSession != null
+					? await collection.FindOneAndDeleteAsync(AmbientSession, filter).ConfigureAwait(false)
+					: await collection.FindOneAndDeleteAsync(filter).ConfigureAwait(false));
+			}
+		}
+
+		public Task<TDerivedEntity> FindOneAndDeleteAsync<TDerivedEntity>(string id, bool softDelete = false) where TDerivedEntity : TEntity
+		{
+			if (id is null)
+			{
+				throw new ArgumentNullException(nameof(id));
+			}
+
+			var filter = new BsonDocumentFilterDefinition<TDerivedEntity>(new BsonDocument("_id", ObjectId.Parse(id)));
+
+			return FindOneAndDeleteImplAsync(MongoCollection.OfType<TDerivedEntity>(), filter, softDelete);
+		}
+
+		public Task<TDerivedEntity> FindOneAndDeleteAsync<TDerivedEntity>(Expression<Func<TDerivedEntity, bool>> filter, bool softDelete = false) where TDerivedEntity : TEntity
+		{
+			return FindOneAndDeleteImplAsync(MongoCollection.OfType<TDerivedEntity>(), Builders<TDerivedEntity>.Filter.Where(filter), softDelete);
+		}
+
+		#endregion
 	}
 
 	public class NoBulkWriteResult<T> : BulkWriteResult<T>

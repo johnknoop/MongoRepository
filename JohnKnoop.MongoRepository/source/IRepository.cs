@@ -89,6 +89,12 @@ namespace JohnKnoop.MongoRepository
 		Task<DeleteResult> DeleteManyAsync(Expression<Func<TEntity, bool>> filter, bool softDelete = false);
 		Task<DeleteResult> DeleteManyAsync<TDerived>(Expression<Func<TDerived, bool>> filter, bool softDelete = false) where TDerived : TEntity;
 
+		Task<TEntity> FindOneAndDeleteAsync(string id, bool softDelete = false);
+		Task<TEntity> FindOneAndDeleteAsync(Expression<Func<TEntity, bool>> filter, bool softDelete = false);
+
+		Task<TDerivedEntity> FindOneAndDeleteAsync<TDerivedEntity>(string id, bool softDelete = false) where TDerivedEntity : TEntity;
+		Task<TDerivedEntity> FindOneAndDeleteAsync<TDerivedEntity>(Expression<Func<TDerivedEntity, bool>> filter, bool softDelete = false) where TDerivedEntity : TEntity;
+
 		Task<TEntity> GetFromTrashAsync(Expression<Func<SoftDeletedEntity<TEntity>, bool>> filter);
 		Task<IList<TEntity>> RestoreSoftDeletedAsync(Expression<Func<SoftDeletedEntity<TEntity>, bool>> filter);
 		Task<IList<SoftDeletedEntity>> ListTrashAsync(int? offset = null, int? limit = null);

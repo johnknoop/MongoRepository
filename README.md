@@ -176,12 +176,19 @@ Returns an [IAggregateFluent](http://api.mongodb.com/csharp/current/html/T_Mongo
 ### Deleting
 ```csharp
 await repository.DeleteByIdAsync("id");
+// or
 await repository.DeleteManyAsync(x => x.SomeProperty === someValue);
+// or
+var deleted = await repository.FindOneAndDeleteAsync("id");
+// or
+var deleted = await repository.FindOneAndDeleteAsync<DerivedType>(x => x.SomeProp == someValue);
 ```
 #### Soft-deleting
 Soft-deleting an entity will move it to a different collection, preserving type-information.
 ```csharp
 await repository.DeleteByIdAsync("id", softDelete: true);
+// or
+var deleted = await repository.FindOneAndDeleteAsync("id", softDelete: true);
 ```
 Listing soft-deleted entities:
 ```csharp
