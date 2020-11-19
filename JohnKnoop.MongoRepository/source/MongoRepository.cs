@@ -171,7 +171,7 @@ namespace JohnKnoop.MongoRepository
 
 		public Task<TReturnProjection> FindOneAndUpdateAsync<TReturnProjection>(Expression<Func<TEntity, bool>> filter, Func<UpdateDefinitionBuilder<TEntity>, UpdateDefinition<TEntity>> update, Expression<Func<TEntity, TReturnProjection>> returnProjection, ReturnedDocumentState returnedDocumentState = ReturnedDocumentState.BeforeUpdate, bool upsert = false)
 		{
-			return FindOneAndUpdateAsync(filter, update, Builders<TEntity>.Projection.Expression(returnProjection), returnedDocumentState, upsert);
+			return FindOneAndUpdateAsync<TReturnProjection>(filter, update, Builders<TEntity>.Projection.Expression(returnProjection), returnedDocumentState, upsert);
 		}
 
 		public async Task<TReturnProjection> FindOneAndUpdateAsync<TReturnProjection>(Expression<Func<TEntity, bool>> filter, Func<UpdateDefinitionBuilder<TEntity>, UpdateDefinition<TEntity>> update, ProjectionDefinition<TEntity, TReturnProjection> returnProjection, ReturnedDocumentState returnedDocumentState = ReturnedDocumentState.AfterUpdate, bool upsert = false)
@@ -188,6 +188,33 @@ namespace JohnKnoop.MongoRepository
 				filter,
 				update(Builders<TEntity>.Update),
 				new FindOneAndUpdateOptions<TEntity, TReturnProjection>
+				{
+					Projection = returnProjection,
+					ReturnDocument = returnDocument,
+					IsUpsert = upsert
+				}).ConfigureAwait(false);
+		}
+
+		
+		public Task<TReturnProjection> FindOneAndUpdateAsync<TDerived, TReturnProjection>(Expression<Func<TDerived, bool>> filter, Func<UpdateDefinitionBuilder<TDerived>, UpdateDefinition<TDerived>> update, Expression<Func<TDerived, TReturnProjection>> returnProjection, ReturnedDocumentState returnedDocumentState = ReturnedDocumentState.AfterUpdate, bool upsert = false) where TDerived : TEntity
+		{
+			return FindOneAndUpdateAsync(filter, update, Builders<TDerived>.Projection.Expression(returnProjection), returnedDocumentState, upsert);
+		}
+
+		public async Task<TReturnProjection> FindOneAndUpdateAsync<TDerived, TReturnProjection>(Expression<Func<TDerived, bool>> filter, Func<UpdateDefinitionBuilder<TDerived>, UpdateDefinition<TDerived>> update, ProjectionDefinition<TDerived, TReturnProjection> returnProjection, ReturnedDocumentState returnedDocumentState = ReturnedDocumentState.AfterUpdate, bool upsert = false) where TDerived : TEntity
+		{
+			TryAutoEnlistWithCurrentTransactionScope();
+
+			await MongoConfiguration.EnsureIndexesAndCap(MongoCollection);
+
+			var returnDocument = returnedDocumentState == ReturnedDocumentState.BeforeUpdate
+				? ReturnDocument.Before
+				: ReturnDocument.After;
+
+			return await this.MongoCollection.OfType<TDerived>().FindOneAndUpdateAsync(
+				filter,
+				update(Builders<TDerived>.Update),
+				new FindOneAndUpdateOptions<TDerived, TReturnProjection>
 				{
 					Projection = returnProjection,
 					ReturnDocument = returnDocument,
