@@ -8,6 +8,7 @@ using System.Transactions;
 using Xunit;
 using JohnKnoop.MongoRepository.Extensions;
 using FluentAssertions;
+using MongoDB.Bson;
 
 namespace JohnKnoop.MongoRepository.IntegrationTests
 {
@@ -32,6 +33,30 @@ namespace JohnKnoop.MongoRepository.IntegrationTests
 				throw ex;
 			}
 		}
+	}
+
+	public class SharedClass
+	{
+		public string Name { get; private set; }
+
+		public SharedClass(string name)
+		{
+			Name = name;
+		}
+	}
+
+	public class MyStandaloneEntity
+	{
+		public MyStandaloneEntity(string name, SharedClass myProperty)
+		{
+			Id = ObjectId.GenerateNewId().ToString();
+			Name = name;
+			MyProperty = myProperty;
+		}
+
+		public string Id { get; private set; }
+		public string Name { get; private set; }
+		public SharedClass MyProperty { get; private set; }
 	}
 
 	[CollectionDefinition("IntegrationTests", DisableParallelization = true)]

@@ -2,13 +2,13 @@
 
 	<PropertyGroup>
 		<TargetFramework>netstandard2.0</TargetFramework>
-		<Version>5.5.0</Version>
+		<Version>6.0.0</Version>
 		<Description>An easily configurable repository abstraction for MongoDB with first-class support for multi-tenancy</Description>
 		<PackageProjectUrl>https://github.com/johnknoop/MongoRepository</PackageProjectUrl>
 		<PackageTags>repository mongodb multitenant</PackageTags>
 		<Authors>John Knoop</Authors>
-		<LangVersion>7.1</LangVersion>
-		<PackageReleaseNotes>FindOneAndDeleteAsync</PackageReleaseNotes>
+		<LangVersion>8.0</LangVersion>
+		<PackageReleaseNotes>UpdateManyAsync&lt;TDerived&gt;</PackageReleaseNotes>
 		<GenerateDocumentationFile>true</GenerateDocumentationFile>
 	</PropertyGroup>
 
@@ -19,5 +19,4 @@
 		<PackageReference Include="Newtonsoft.Json" version="12.0.2" />
 		<PackageReference Include="System.Threading.Tasks.Extensions" Version="4.5.4" />
 	</ItemGroup>
-
 </Project>

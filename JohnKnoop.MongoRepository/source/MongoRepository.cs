@@ -444,17 +444,17 @@ namespace JohnKnoop.MongoRepository
 		/// <summary>
 		/// Applies the same update to multiple entities
 		/// </summary>
-		public async Task UpdateManyAsync(Expression<Func<TEntity, bool>> filter,
-			string update,
-			UpdateOptions options = null)
+		public async Task UpdateManyAsync<TDerived>(Expression<Func<TDerived, bool>> filter,
+			Func<UpdateDefinitionBuilder<TDerived>, UpdateDefinition<TDerived>> update,
+			UpdateOptions options = null)  where TDerived : TEntity
 		{
 			TryAutoEnlistWithCurrentTransactionScope();
 
 			await MongoConfiguration.EnsureIndexesAndCap(MongoCollection);
 
 			await (AmbientSession != null
-				? this.MongoCollection.UpdateManyAsync(AmbientSession, filter, update, options).ConfigureAwait(false)
-				: this.MongoCollection.UpdateManyAsync(filter, update, options).ConfigureAwait(false));
+				? this.MongoCollection.OfType<TDerived>().UpdateManyAsync(AmbientSession, filter, update(Builders<TDerived>.Update), options).ConfigureAwait(false)
+				: this.MongoCollection.OfType<TDerived>().UpdateManyAsync(filter, update(Builders<TDerived>.Update), options).ConfigureAwait(false));
 		}
 
 		public async Task<long?> GetCounterValueAsync(string name = null)

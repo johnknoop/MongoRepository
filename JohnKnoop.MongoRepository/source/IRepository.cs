@@ -153,10 +153,12 @@ namespace JohnKnoop.MongoRepository
 			Func<UpdateDefinitionBuilder<TEntity>, UpdateDefinition<TEntity>> update,
 			UpdateOptions options = null);
 
-		[Obsolete("This overload of UpdateOneAsync will be removed in a future version")]
-		Task UpdateManyAsync(Expression<Func<TEntity, bool>> filter,
-			string update,
-			UpdateOptions options = null);
+		/// <summary>
+		/// Applies the same update to multiple entities
+		/// </summary>
+		Task UpdateManyAsync<TDerived>(Expression<Func<TDerived, bool>> filter,
+			Func<UpdateDefinitionBuilder<TDerived>, UpdateDefinition<TDerived>> update,
+			UpdateOptions options = null) where TDerived : TEntity;
 
 		/// <summary>
 		/// Increments a counter (stored in the _counters collection) and returns the new value
