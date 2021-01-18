@@ -670,9 +670,9 @@ namespace JohnKnoop.MongoRepository
 			}
 		}
 
-		public IFindFluent<TEntity, TEntity> GetAll()
+		public IFindFluent<TEntity, TEntity> GetAll(FindOptions options = null)
 		{
-			return this.MongoCollection.Find(FilterDefinition<TEntity>.Empty);
+			return this.MongoCollection.Find(FilterDefinition<TEntity>.Empty, options);
 		}
 
 		public async Task<TEntity> GetFromTrashAsync(string objectId)
@@ -945,102 +945,154 @@ namespace JohnKnoop.MongoRepository
 		}
 
 		#region Find
-		public IFindFluent<TDerivedEntity, TDerivedEntity> Find<TDerivedEntity>(FilterDefinition<TDerivedEntity> filter) where TDerivedEntity : TEntity
+		public IFindFluent<TDerivedEntity, TDerivedEntity> Find<TDerivedEntity>(
+			FilterDefinition<TDerivedEntity> filter,
+			FindOptions options = null) where TDerivedEntity : TEntity
 		{
-			return this.MongoCollection.OfType<TDerivedEntity>().Find(filter);
+			return this.MongoCollection.OfType<TDerivedEntity>().Find(filter, options);
 		}
 
-		public IFindFluent<TEntity, TEntity> Find(FilterDefinition<TEntity> filter)
+		public IFindFluent<TEntity, TEntity> Find(FilterDefinition<TEntity> filter, FindOptions options = null)
 		{
-			return this.MongoCollection.Find(filter);
+			return this.MongoCollection.Find(filter, options);
 		}
 
-		public IFindFluent<TEntity, TEntity> Find(Expression<Func<TEntity, bool>> filterExpression)
+		public IFindFluent<TEntity, TEntity> Find(Expression<Func<TEntity, bool>> filterExpression, FindOptions options = null)
 		{
-			return this.MongoCollection.Find(filterExpression);
+			return this.MongoCollection.Find(filterExpression, options);
 		}
 
-		public IFindFluent<TEntity, TEntity> Find(FieldDefinition<TEntity> property, string regexPattern, string regexOptions = "i")
+		public IFindFluent<TEntity, TEntity> Find(
+			FieldDefinition<TEntity> property,
+			string regexPattern,
+			string regexOptions = "i",
+			FindOptions options = null)
 		{
-			return this.MongoCollection.Find(Builders<TEntity>.Filter.Regex(property, new BsonRegularExpression(regexPattern, regexOptions)));
+			return this.MongoCollection
+				.Find(Builders<TEntity>.Filter.Regex(property, new BsonRegularExpression(regexPattern, regexOptions)), options);
 		}
 
-		public IFindFluent<TEntity, TEntity> Find(Expression<Func<TEntity, object>> property, string regexPattern, string regexOptions = "i")
+		public IFindFluent<TEntity, TEntity> Find(
+			Expression<Func<TEntity, object>> property,
+			string regexPattern,
+			string regexOptions = "i",
+			FindOptions options = null)
 		{
-			return this.MongoCollection.Find(Builders<TEntity>.Filter.Regex(property, new BsonRegularExpression(regexPattern, regexOptions)));
+			return this.MongoCollection
+				.Find(Builders<TEntity>.Filter.Regex(property, new BsonRegularExpression(regexPattern, regexOptions)), options);
 		}
 
-		public IFindFluent<TEntity, TEntity> Find(IEnumerable<FieldDefinition<TEntity>> properties, string regexPattern, string regexOptions = "i")
+		public IFindFluent<TEntity, TEntity> Find(
+			IEnumerable<FieldDefinition<TEntity>> properties,
+			string regexPattern,
+			string regexOptions = "i",
+			FindOptions options = null)
 		{
 			var filters = properties.Select(p =>
 				Builders<TEntity>.Filter.Regex(p, new BsonRegularExpression(regexPattern, regexOptions)));
 
-			return this.MongoCollection.Find(Builders<TEntity>.Filter.Or(filters));
+			return this.MongoCollection.Find(Builders<TEntity>.Filter.Or(filters), options);
 		}
 
-		public IFindFluent<TEntity, TEntity> Find(IEnumerable<Expression<Func<TEntity, object>>> properties, string regexPattern, string regexOptions = "i")
+		public IFindFluent<TEntity, TEntity> Find(
+			IEnumerable<Expression<Func<TEntity, object>>> properties,
+			string regexPattern,
+			string regexOptions = "i",
+			FindOptions options = null)
 		{
 			var filters = properties.Select(p =>
 				Builders<TEntity>.Filter.Regex(p, new BsonRegularExpression(regexPattern, regexOptions)));
 
-			return this.MongoCollection.Find(Builders<TEntity>.Filter.Or(filters));
+			return this.MongoCollection.Find(Builders<TEntity>.Filter.Or(filters), options);
 		}
 
-		public IFindFluent<TDerivedEntity, TDerivedEntity> Find<TDerivedEntity>(FieldDefinition<TDerivedEntity> property, string regexPattern, string regexOptions = "i") where TDerivedEntity : TEntity
+		public IFindFluent<TDerivedEntity, TDerivedEntity> Find<TDerivedEntity>(
+			FieldDefinition<TDerivedEntity> property,
+			string regexPattern,
+			string regexOptions = "i",
+			FindOptions options = null) where TDerivedEntity : TEntity
 		{
-			return this.MongoCollection.OfType<TDerivedEntity>().Find(Builders<TDerivedEntity>.Filter.Regex(property, new BsonRegularExpression(regexPattern, regexOptions)));
+			return this.MongoCollection.OfType<TDerivedEntity>()
+				.Find(Builders<TDerivedEntity>.Filter.Regex(property, new BsonRegularExpression(regexPattern, regexOptions)), options);
 		}
 
-		public IFindFluent<TDerivedEntity, TDerivedEntity> Find<TDerivedEntity>(Expression<Func<TDerivedEntity, object>> property, string regexPattern, string regexOptions = "i") where TDerivedEntity : TEntity
+		public IFindFluent<TDerivedEntity, TDerivedEntity> Find<TDerivedEntity>(
+			Expression<Func<TDerivedEntity, object>> property,
+			string regexPattern,
+			string regexOptions = "i",
+			FindOptions options = null) where TDerivedEntity : TEntity
 		{
-			return this.MongoCollection.OfType<TDerivedEntity>().Find(Builders<TDerivedEntity>.Filter.Regex(property, new BsonRegularExpression(regexPattern, regexOptions)));
+			return this.MongoCollection.OfType<TDerivedEntity>()
+				.Find(Builders<TDerivedEntity>.Filter.Regex(property, new BsonRegularExpression(regexPattern, regexOptions)), options);
 		}
 
-		public IFindFluent<TDerivedEntity, TDerivedEntity> Find<TDerivedEntity>(IEnumerable<FieldDefinition<TDerivedEntity>> properties, string regexPattern, string regexOptions = "i") where TDerivedEntity : TEntity
+		public IFindFluent<TDerivedEntity, TDerivedEntity> Find<TDerivedEntity>(
+			IEnumerable<FieldDefinition<TDerivedEntity>> properties,
+			string regexPattern,
+			string regexOptions = "i",
+			FindOptions options = null) where TDerivedEntity : TEntity
 		{
 			var filters = properties.Select(p =>
 				Builders<TDerivedEntity>.Filter.Regex(p, new BsonRegularExpression(regexPattern, regexOptions)));
 
-			return this.MongoCollection.OfType<TDerivedEntity>().Find(Builders<TDerivedEntity>.Filter.Or(filters));
+			return this.MongoCollection.OfType<TDerivedEntity>().Find(Builders<TDerivedEntity>.Filter.Or(filters), options);
 		}
 
-		public IFindFluent<TDerivedEntity, TDerivedEntity> Find<TDerivedEntity>(IEnumerable<Expression<Func<TDerivedEntity, object>>> properties, string regexPattern, string regexOptions = "i") where TDerivedEntity : TEntity
+		public IFindFluent<TDerivedEntity, TDerivedEntity> Find<TDerivedEntity>(
+			IEnumerable<Expression<Func<TDerivedEntity, object>>> properties,
+			string regexPattern,
+			string regexOptions = "i",
+			FindOptions options = null) where TDerivedEntity : TEntity
 		{
 			var filters = properties.Select(p =>
 				Builders<TDerivedEntity>.Filter.Regex(p, new BsonRegularExpression(regexPattern, regexOptions)));
 
-			return this.MongoCollection.OfType<TDerivedEntity>().Find(Builders<TDerivedEntity>.Filter.Or(filters));
+			return this.MongoCollection.OfType<TDerivedEntity>().Find(Builders<TDerivedEntity>.Filter.Or(filters), options);
 		}
 
-		public IFindFluent<TDerivedEntity, TDerivedEntity> Find<TDerivedEntity>(Expression<Func<TDerivedEntity, bool>> filterExpression) where TDerivedEntity : TEntity
+		public IFindFluent<TDerivedEntity, TDerivedEntity> Find<TDerivedEntity>(
+			Expression<Func<TDerivedEntity, bool>> filterExpression,
+			FindOptions options = null) where TDerivedEntity : TEntity
 		{
-			return this.MongoCollection.OfType<TDerivedEntity>().Find(filterExpression);
+			return this.MongoCollection.OfType<TDerivedEntity>().Find(filterExpression, options);
 		}
 		#endregion
 
 		#region FindAsync
-		public Task<IAsyncCursor<TEntity>> FindAsync(Expression<Func<TEntity, bool>> filter)
+		public Task<IAsyncCursor<TEntity>> FindAsync(Expression<Func<TEntity, bool>> filter, FindOptions<TEntity, TEntity> options = null)
 		{
-			return this.MongoCollection.FindAsync(filter);
+			return this.MongoCollection.FindAsync(filter, options);
 		}
 
-		public Task<IAsyncCursor<TDerivedEntity>> FindAsync<TDerivedEntity>(Expression<Func<TDerivedEntity, bool>> filter) where TDerivedEntity : TEntity
+		public Task<IAsyncCursor<TDerivedEntity>> FindAsync<TDerivedEntity>(
+			Expression<Func<TDerivedEntity, bool>> filter,
+			FindOptions<TDerivedEntity, TDerivedEntity> options = null) where TDerivedEntity : TEntity
 		{
-			return this.MongoCollection.OfType<TDerivedEntity>().FindAsync(filter);
+			return this.MongoCollection.OfType<TDerivedEntity>().FindAsync(filter, options);
 		}
 
-		public Task<IAsyncCursor<TReturnProjection>> FindAsync<TReturnProjection>(Expression<Func<TEntity, bool>> filter, Expression<Func<TEntity, TReturnProjection>> returnProjection)
+		public Task<IAsyncCursor<TReturnProjection>> FindAsync<TReturnProjection>(
+			Expression<Func<TEntity, bool>> filter,
+			Expression<Func<TEntity, TReturnProjection>> returnProjection,
+			FindOptions<TEntity, TReturnProjection> options = null)
 		{
-			return this.MongoCollection.FindAsync(filter, new FindOptions<TEntity, TReturnProjection>{
-				Projection = Builders<TEntity>.Projection.Expression(returnProjection)
-			});
+			var opt = options ?? new FindOptions<TEntity, TReturnProjection>();
+
+			opt.Projection = Builders<TEntity>.Projection.Expression(returnProjection);
+
+			return this.MongoCollection.FindAsync(filter, opt);
 		}
 
-		public Task<IAsyncCursor<TReturnProjection>> FindAsync<TDerivedEntity, TReturnProjection>(Expression<Func<TDerivedEntity, bool>> filter, Expression<Func<TDerivedEntity, TReturnProjection>> returnProjection) where TDerivedEntity : TEntity
+		public Task<IAsyncCursor<TReturnProjection>> FindAsync<TDerivedEntity, TReturnProjection>(
+			Expression<Func<TDerivedEntity, bool>> filter,
+			Expression<Func<TDerivedEntity, TReturnProjection>> returnProjection,
+			FindOptions<TDerivedEntity, TReturnProjection> options = null) where TDerivedEntity : TEntity
 		{
-			return this.MongoCollection.OfType<TDerivedEntity>().FindAsync(filter, new FindOptions<TDerivedEntity, TReturnProjection>{
-				Projection = Builders<TDerivedEntity>.Projection.Expression(returnProjection)
-			});
+			var opt = options ?? new FindOptions<TDerivedEntity, TReturnProjection>();
+
+			opt.Projection = Builders<TDerivedEntity>.Projection.Expression(returnProjection);
+
+			return this.MongoCollection.OfType<TDerivedEntity>().FindAsync(filter, opt);
 		} 
 		#endregion
 
@@ -1070,14 +1122,14 @@ namespace JohnKnoop.MongoRepository
 		} 
 		#endregion
 
-		public IMongoQueryable<TEntity> Query()
+		public IMongoQueryable<TEntity> Query(AggregateOptions options = null)
 		{
-			return this.MongoCollection.AsQueryable();
+			return this.MongoCollection.AsQueryable(options);
 		}
 
-		public IMongoQueryable<TDerivedEntity> Query<TDerivedEntity>() where TDerivedEntity : TEntity
+		public IMongoQueryable<TDerivedEntity> Query<TDerivedEntity>(AggregateOptions options = null) where TDerivedEntity : TEntity
 		{
-			return this.MongoCollection.OfType<TDerivedEntity>().AsQueryable();
+			return this.MongoCollection.OfType<TDerivedEntity>().AsQueryable(options);
 		}
 
 		public async Task<TEntity> GetAsync(string objectId)

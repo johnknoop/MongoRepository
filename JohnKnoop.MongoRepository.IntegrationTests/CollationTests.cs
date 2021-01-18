@@ -11,15 +11,15 @@ using Xunit;
 
 namespace JohnKnoop.MongoRepository.IntegrationTests
 {
-	[CollectionDefinition("IntegrationTests", DisableParallelization = true)]
-	public class DeleteTests : IClassFixture<LaunchSettingsFixture>
-	{
+    [CollectionDefinition("IntegrationTests", DisableParallelization = true)]
+    public class CollationTests : IClassFixture<LaunchSettingsFixture>
+    {
 		private const string DbName = "TestDb";
 		private const string CollectionName = "MyEntities";
 		private readonly MongoClient _mongoClient;
 		private readonly IRepository<MySimpleEntity> _repository;
 
-		public DeleteTests(LaunchSettingsFixture launchSettingsFixture)
+		public CollationTests(LaunchSettingsFixture launchSettingsFixture)
 		{
 			_mongoClient = new MongoClient(Environment.GetEnvironmentVariable("MongoDbConnectionString"));
 
@@ -39,26 +39,40 @@ namespace JohnKnoop.MongoRepository.IntegrationTests
 			_repository = _mongoClient.GetRepository<MySimpleEntity>();
 		}
 
-		private async Task AssertNumberOfDocumentsInCollection(int expected)
-		{
-			var documentsInCollection = await _mongoClient.GetDatabase(DbName).GetCollection<MySimpleEntity>(CollectionName).CountDocumentsAsync(x => true);
-			documentsInCollection.Should().Be(expected);
-		}
+
 
 		[Fact]
-		public async Task DeleteMany_WithoutFilter_ShouldDeleteAllDocumentsInCollection()
+		public async Task CanSortNaturally()
 		{
+			// Arrange
+
 			await _repository.InsertManyAsync(new []
 			{
-				new MySimpleEntity("Bob"),
-				new MySimpleEntity("Mary"),
+				new MySimpleEntity("A10-20"),
+				new MySimpleEntity("A9-1"),
+				new MySimpleEntity("A9-2"),
+				new MySimpleEntity("A9-11"),
+				new MySimpleEntity("A8-1"),
+				new MySimpleEntity("A10-3"),
 			});
 
-			await AssertNumberOfDocumentsInCollection(2);
+			// Act
 
-			await _repository.DeleteManyAsync(x => true);
+			var result = await _repository.GetAll(new FindOptions
+			{
+				Collation = new Collation("sv", numericOrdering: true)
+			}).SortBy(x => x.Name).ToListAsync();
 
-			await AssertNumberOfDocumentsInCollection(0);
+			// Assert
+
+			result.Select(x => x.Name).Should().Equal(new [] {
+				"A8-1",
+				"A9-1",
+				"A9-2",
+				"A9-11",
+				"A10-3",
+				"A10-20",
+			});
 		}
 	}
 }

@@ -42,8 +42,8 @@ namespace JohnKnoop.MongoRepository
 		Task InsertManyAsync(ICollection<TEntity> entities);
 		Task InsertManyAsync<TDerivedEntity>(ICollection<TDerivedEntity> entities) where TDerivedEntity : TEntity;
 
-		IMongoQueryable<TEntity> Query();
-		IMongoQueryable<TDerivedEntity> Query<TDerivedEntity>() where TDerivedEntity : TEntity;
+		IMongoQueryable<TEntity> Query(AggregateOptions options = null);
+		IMongoQueryable<TDerivedEntity> Query<TDerivedEntity>(AggregateOptions options = null) where TDerivedEntity : TEntity;
 		
 		/// <returns>An instance of <c>TEntity</c> or null</returns>
 		Task<TEntity> GetAsync(string id);
@@ -53,33 +53,33 @@ namespace JohnKnoop.MongoRepository
 		Task<TReturnProjection> GetAsync<TReturnProjection>(string id, Expression<Func<TEntity, TReturnProjection>> returnProjection);
 		Task<TReturnProjection> GetAsync<TDerivedEntity, TReturnProjection>(string id, Expression<Func<TDerivedEntity, TReturnProjection>> returnProjection) where TDerivedEntity : TEntity;
 
-		IFindFluent<TEntity, TEntity> GetAll();
-		IFindFluent<TEntity, TEntity> Find(Expression<Func<TEntity, bool>> filter);
-		IFindFluent<TDerivedEntity, TDerivedEntity> Find<TDerivedEntity>(Expression<Func<TDerivedEntity, bool>> filter) where TDerivedEntity : TEntity;
+		IFindFluent<TEntity, TEntity> GetAll(FindOptions options = null);
+		IFindFluent<TEntity, TEntity> Find(Expression<Func<TEntity, bool>> filter, FindOptions options = null);
+		IFindFluent<TDerivedEntity, TDerivedEntity> Find<TDerivedEntity>(Expression<Func<TDerivedEntity, bool>> filter, FindOptions options = null) where TDerivedEntity : TEntity;
 		
-		IFindFluent<TEntity, TEntity> Find(Expression<Func<TEntity, object>> property, string regexPattern, string regexOptions = "i");
-		IFindFluent<TEntity, TEntity> Find(FieldDefinition<TEntity> property, string regexPattern, string regexOptions = "i");
-		IFindFluent<TEntity, TEntity> Find(IEnumerable<Expression<Func<TEntity, object>>> properties, string regexPattern, string regexOptions = "i");
-		IFindFluent<TEntity, TEntity> Find(IEnumerable<FieldDefinition<TEntity>> properties, string regexPattern, string regexOptions = "i");
+		IFindFluent<TEntity, TEntity> Find(Expression<Func<TEntity, object>> property, string regexPattern, string regexOptions = "i", FindOptions options = null);
+		IFindFluent<TEntity, TEntity> Find(FieldDefinition<TEntity> property, string regexPattern, string regexOptions = "i", FindOptions options = null);
+		IFindFluent<TEntity, TEntity> Find(IEnumerable<Expression<Func<TEntity, object>>> properties, string regexPattern, string regexOptions = "i", FindOptions options = null);
+		IFindFluent<TEntity, TEntity> Find(IEnumerable<FieldDefinition<TEntity>> properties, string regexPattern, string regexOptions = "i", FindOptions options = null);
 
-		IFindFluent<TDerivedEntity, TDerivedEntity> Find<TDerivedEntity>(Expression<Func<TDerivedEntity, object>> property, string regexPattern, string regexOptions = "i") where TDerivedEntity : TEntity;
-		IFindFluent<TDerivedEntity, TDerivedEntity> Find<TDerivedEntity>(FieldDefinition<TDerivedEntity> property, string regexPattern, string regexOptions = "i") where TDerivedEntity : TEntity;
-		IFindFluent<TDerivedEntity, TDerivedEntity> Find<TDerivedEntity>(IEnumerable<Expression<Func<TDerivedEntity, object>>> properties, string regexPattern, string regexOptions = "i") where TDerivedEntity : TEntity;
-		IFindFluent<TDerivedEntity, TDerivedEntity> Find<TDerivedEntity>(IEnumerable<FieldDefinition<TDerivedEntity>> properties, string regexPattern, string regexOptions = "i") where TDerivedEntity : TEntity;
+		IFindFluent<TDerivedEntity, TDerivedEntity> Find<TDerivedEntity>(Expression<Func<TDerivedEntity, object>> property, string regexPattern, string regexOptions = "i", FindOptions options = null) where TDerivedEntity : TEntity;
+		IFindFluent<TDerivedEntity, TDerivedEntity> Find<TDerivedEntity>(FieldDefinition<TDerivedEntity> property, string regexPattern, string regexOptions = "i", FindOptions options = null) where TDerivedEntity : TEntity;
+		IFindFluent<TDerivedEntity, TDerivedEntity> Find<TDerivedEntity>(IEnumerable<Expression<Func<TDerivedEntity, object>>> properties, string regexPattern, string regexOptions = "i", FindOptions options = null) where TDerivedEntity : TEntity;
+		IFindFluent<TDerivedEntity, TDerivedEntity> Find<TDerivedEntity>(IEnumerable<FieldDefinition<TDerivedEntity>> properties, string regexPattern, string regexOptions = "i", FindOptions options = null) where TDerivedEntity : TEntity;
 
-		Task<IAsyncCursor<TEntity>> FindAsync(Expression<Func<TEntity, bool>> filter);
-		Task<IAsyncCursor<TDerivedEntity>> FindAsync<TDerivedEntity>(Expression<Func<TDerivedEntity, bool>> filter) where TDerivedEntity : TEntity;
-		Task<IAsyncCursor<TReturnProjection>> FindAsync<TReturnProjection>(Expression<Func<TEntity, bool>> filter, Expression<Func<TEntity, TReturnProjection>> returnProjection);
-		Task<IAsyncCursor<TReturnProjection>> FindAsync<TDerivedEntity, TReturnProjection>(Expression<Func<TDerivedEntity, bool>> filter, Expression<Func<TDerivedEntity, TReturnProjection>> returnProjection) where TDerivedEntity : TEntity;
+		Task<IAsyncCursor<TEntity>> FindAsync(Expression<Func<TEntity, bool>> filter, FindOptions<TEntity, TEntity> options = null);
+		Task<IAsyncCursor<TDerivedEntity>> FindAsync<TDerivedEntity>(Expression<Func<TDerivedEntity, bool>> filter, FindOptions<TDerivedEntity, TDerivedEntity> options = null) where TDerivedEntity : TEntity;
+		Task<IAsyncCursor<TReturnProjection>> FindAsync<TReturnProjection>(Expression<Func<TEntity, bool>> filter, Expression<Func<TEntity, TReturnProjection>> returnProjection, FindOptions<TEntity, TReturnProjection> options = null);
+		Task<IAsyncCursor<TReturnProjection>> FindAsync<TDerivedEntity, TReturnProjection>(Expression<Func<TDerivedEntity, bool>> filter, Expression<Func<TDerivedEntity, TReturnProjection>> returnProjection, FindOptions<TDerivedEntity, TReturnProjection> options = null) where TDerivedEntity : TEntity;
 
 		Task<TEntity> FindOneAsync(Expression<Func<TEntity, bool>> filter);
 		Task<TDerivedEntity> FindOneAsync<TDerivedEntity>(Expression<Func<TDerivedEntity, bool>> filter) where TDerivedEntity : TEntity;
 		Task<TReturnProjection> FindOneAsync<TReturnProjection>(Expression<Func<TEntity, bool>> filter, Expression<Func<TEntity, TReturnProjection>> returnProjection);
 		Task<TReturnProjection> FindOneAsync<TDerivedEntity, TReturnProjection>(Expression<Func<TDerivedEntity, bool>> filter, Expression<Func<TDerivedEntity, TReturnProjection>> returnProjection) where TDerivedEntity : TEntity;
 
-		IFindFluent<TEntity, TEntity> Find(FilterDefinition<TEntity> filter);
+		IFindFluent<TEntity, TEntity> Find(FilterDefinition<TEntity> filter, FindOptions options = null);
 
-		IFindFluent<TDerivedEntity, TDerivedEntity> Find<TDerivedEntity>(FilterDefinition<TDerivedEntity> filter)
+		IFindFluent<TDerivedEntity, TDerivedEntity> Find<TDerivedEntity>(FilterDefinition<TDerivedEntity> filter, FindOptions options = null)
 			where TDerivedEntity : TEntity;
 
 		IAggregateFluent<TEntity> Aggregate(AggregateOptions options = null);
