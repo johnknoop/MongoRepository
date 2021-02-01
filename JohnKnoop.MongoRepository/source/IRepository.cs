@@ -191,7 +191,7 @@ namespace JohnKnoop.MongoRepository
 		/// 
 		/// This method will throw if there is no ambient TransactionScope.
 		/// </summary>
-		void EnlistWithCurrentTransactionScope();
+		void EnlistWithCurrentTransactionScope(int maxRetries = default);
 		Transaction StartTransaction(ClientSessionOptions sessionOptions = null, MongoDB.Driver.TransactionOptions transactionOptions = null);
 		IRepository<TEntity> WithReadPreference(ReadPreference readPreference);
 
@@ -209,18 +209,20 @@ namespace JohnKnoop.MongoRepository
 		TransactionScope
 	}
 
-	public class TransactionEnlistment : IEnlistmentNotification
+	public class RetryingTransactionEnlistment : IEnlistmentNotification
 	{
 		private readonly IClientSessionHandle _session;
+		private readonly int _maxRetries;
 
-		public TransactionEnlistment(IClientSessionHandle session)
+		public RetryingTransactionEnlistment(IClientSessionHandle session, int maxRetries = 0)
 		{
 			_session = session;
+			_maxRetries = maxRetries;
 		}
 
 		public void Commit(Enlistment enlistment)
 		{
-			Retryer.Retry(() => _session.CommitTransaction());
+			Retryer.Retry(() => _session.CommitTransaction(), _maxRetries);
 			enlistment.Done();
 		}
 
@@ -314,7 +316,7 @@ namespace JohnKnoop.MongoRepository
 			}
 		}
 
-		public static async Task Retry(Action transactionBody, int maxRetries = default)
+		public static void Retry(Action transactionBody, int maxRetries = default)
 		{
 			var tries = 0;
 			var startTime = DateTime.UtcNow;

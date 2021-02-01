@@ -906,7 +906,7 @@ namespace JohnKnoop.MongoRepository
 			}
 		}
 
-		public void EnlistWithCurrentTransactionScope()
+		public void EnlistWithCurrentTransactionScope(int maxRetries = 0)
 		{
 			if (_ambientSession.Value != null)
 			{
@@ -928,7 +928,7 @@ namespace JohnKnoop.MongoRepository
 
 			System.Transactions.Transaction.Current.TransactionCompleted += (sender, e) => _ambientSession.Value = null;
 
-			var enlistment = new TransactionEnlistment(session);
+			var enlistment = new RetryingTransactionEnlistment(session, maxRetries);
 			System.Transactions.Transaction.Current.EnlistVolatile(enlistment, System.Transactions.EnlistmentOptions.None);
 		}
 
@@ -1198,9 +1198,9 @@ namespace JohnKnoop.MongoRepository
 			{
 				using (var trans = new TransactionScope(TransactionScopeAsyncFlowOption.Enabled))
 				{
-					EnlistWithCurrentTransactionScope();
+					EnlistWithCurrentTransactionScope(maxRetries);
 
-					await trans.RetryAsync(async (t) => await transactionBody(), maxRetries);
+					await transactionBody();
 					trans.Complete();
 				}
 			}

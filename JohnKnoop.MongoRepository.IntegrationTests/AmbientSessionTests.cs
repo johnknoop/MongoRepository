@@ -234,8 +234,6 @@ namespace JohnKnoop.MongoRepository.IntegrationTests
 					var repo = _mongoClient.GetRepository<DummyEntity>("tenant_a");
 					await Task.Delay(1);
 
-					//repo.EnlistWithCurrentTransactionScope();
-
 					await repo.InsertAsync(new DummyEntity("Hello!"));
 
 					transaction.Complete();
@@ -247,8 +245,6 @@ namespace JohnKnoop.MongoRepository.IntegrationTests
 				using (var transaction = new TransactionScope(TransactionScopeAsyncFlowOption.Enabled))
 				{
 					var repo = _mongoClient.GetRepository<DummyEntity>("tenant_b");
-
-					//repo.EnlistWithCurrentTransactionScope();
 
 					await Task.Run(async () => await repo.InsertAsync(new DummyEntity("Hola!")));
 
@@ -262,8 +258,6 @@ namespace JohnKnoop.MongoRepository.IntegrationTests
 				{
 					var repo = _mongoClient.GetRepository<DummyEntity>("tenant_a");
 
-					//repo.EnlistWithCurrentTransactionScope();
-
 					await Task.Run(async () => await repo.InsertAsync(new DummyEntity("Hello again!")));
 
 					// No commit
@@ -275,8 +269,6 @@ namespace JohnKnoop.MongoRepository.IntegrationTests
 				using (var transaction = new TransactionScope(TransactionScopeAsyncFlowOption.Enabled))
 				{
 					var repo = _mongoClient.GetRepository<DummyEntity>("tenant_a");
-
-					//repo.EnlistWithCurrentTransactionScope();
 
 					await Task.Delay(50);
 					await repo.InsertAsync(new DummyEntity("Hello good sir or madam!"));
@@ -292,16 +284,12 @@ namespace JohnKnoop.MongoRepository.IntegrationTests
 					var repo = _mongoClient.GetRepository<DummyEntity>("tenant_b");
 					await Task.Delay(1);
 
-					//repo.EnlistWithCurrentTransactionScope();
-
 					await MyStaticInserter.InsertDocument(new DummyEntity("Hola senor"), repo);
 					MyStaticInserter.InsertDocument(new DummyEntity("Hola senor"), repo).Wait();
 
 					transaction.Complete();
 				}
 			});
-
-
 
 			await Task.WhenAll(request1, request2, request3, request4, request5);
 
