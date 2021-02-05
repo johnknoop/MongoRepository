@@ -1,4 +1,5 @@
 using FluentAssertions;
+using JohnKnoop.MongoRepository.IntegrationTests.TestEntities;
 using MongoDB.Bson;
 using MongoDB.Driver;
 using System;
@@ -51,6 +52,7 @@ namespace JohnKnoop.MongoRepository.IntegrationTests
 			MongoRepository.Configure()
 				.DatabasePerTenant("TestDb", x => x
 					.MapAlongWithSubclassesInSameAssebmly<DummyEntity>("DummyEntities")
+					.Map<ArrayContainer>("ArrayContainers")
 				)
 				.AutoEnlistWithTransactionScopes()
 				.Build();
@@ -384,6 +386,38 @@ namespace JohnKnoop.MongoRepository.IntegrationTests
 			allDocumentsForTenantA.Should().ContainSingle(x => x.MyProperty == "Hello!");
 			allDocumentsForTenantA.Should().ContainSingle(x => x.MyProperty == "Hello good sir or madam!");
 			allDocumentsForTenantB.Count(x => x.MyProperty == "Hola senor").Should().Be(2);
+		}
+
+		[Fact]
+		public async Task AutomaticallyEnlistsWithAmbientTransaction()
+		{
+			var throwingDummy = new ThrowingDummy(4);
+			var repo = _mongoClient.GetRepository<ArrayContainer>();
+
+			var doc = new ArrayContainer(new List<Dummy> { new Dummy("olle"), new Dummy("bengt") }, "roy");
+			await repo.InsertAsync(doc);
+
+			using (var trans = new TransactionScope(TransactionScopeAsyncFlowOption.Enabled))
+			{
+				doc.Dummies.Add(new Dummy("rolle"));
+
+				await repo.ReplaceOneAsync(
+					x => x.Id == doc.Id,
+					doc
+				);
+
+				await repo.UpdateOneAsync(
+					x => x.Id == doc.Id,
+					x => x.Push(x => x.Dummies, new Dummy("fia"))
+				);
+
+				trans.Complete();
+			}
+
+			var allSaved = await _mongoClient.GetRepository<ArrayContainer>().GetAll().ToListAsync();
+
+			allSaved.Should().ContainSingle()
+				.Which.Dummies.Should().HaveCount(4);
 		}
 	}
 }

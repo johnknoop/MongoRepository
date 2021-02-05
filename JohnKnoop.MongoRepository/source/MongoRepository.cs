@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
@@ -65,9 +66,6 @@ namespace JohnKnoop.MongoRepository
 		protected IMongoCollection<TEntity> MongoCollection;
 		private readonly IMongoCollection<SoftDeletedEntity<TEntity>> _trash;
 
-		private static AsyncLocal<IClientSessionHandle> _ambientSession = new AsyncLocal<IClientSessionHandle>();
-		private static IClientSessionHandle AmbientSession => _ambientSession?.Value;
-
 		private readonly bool _autoEnlistWithCurrentTransactionScope;
 
 		/// <summary>
@@ -93,8 +91,8 @@ namespace JohnKnoop.MongoRepository
 		{
 			var updateDefinition = Builders<TEntity>.Update.Unset(propertyExpression);
 
-			await (AmbientSession != null
-				? MongoCollection.FindOneAndUpdateAsync(AmbientSession, filterExpression, updateDefinition).ConfigureAwait(false)
+			await (SessionContainer.AmbientSession != null
+				? MongoCollection.FindOneAndUpdateAsync(SessionContainer.AmbientSession, filterExpression, updateDefinition).ConfigureAwait(false)
 				: MongoCollection.FindOneAndUpdateAsync(filterExpression, updateDefinition).ConfigureAwait(false));
 		}
 
@@ -120,8 +118,8 @@ namespace JohnKnoop.MongoRepository
 
 			await MongoConfiguration.EnsureIndexesAndCap(MongoCollection);
 
-			await (AmbientSession != null
-				? this.MongoCollection.InsertOneAsync(AmbientSession, entity).ConfigureAwait(false)
+			await (SessionContainer.AmbientSession != null
+				? this.MongoCollection.InsertOneAsync(SessionContainer.AmbientSession, entity).ConfigureAwait(false)
 				: this.MongoCollection.InsertOneAsync(entity).ConfigureAwait(false));
 		}
 
@@ -153,8 +151,8 @@ namespace JohnKnoop.MongoRepository
 
 			var filter = Builders<TEntity>.Filter.Eq("_id", ObjectId.Parse(id));
 
-			return AmbientSession != null
-				? await this.MongoCollection.ReplaceOneAsync(AmbientSession, filter, entity, new UpdateOptions { IsUpsert = upsert }).ConfigureAwait(false)
+			return SessionContainer.AmbientSession != null
+				? await this.MongoCollection.ReplaceOneAsync(SessionContainer.AmbientSession, filter, entity, new UpdateOptions { IsUpsert = upsert }).ConfigureAwait(false)
 				: await this.MongoCollection.ReplaceOneAsync(filter, entity, new UpdateOptions { IsUpsert = upsert }).ConfigureAwait(false);
 		}
 
@@ -164,8 +162,8 @@ namespace JohnKnoop.MongoRepository
 
 			await MongoConfiguration.EnsureIndexesAndCap(MongoCollection);
 
-			return AmbientSession != null
-				? await this.MongoCollection.ReplaceOneAsync(AmbientSession, filter, entity, new UpdateOptions { IsUpsert = upsert }).ConfigureAwait(false)
+			return SessionContainer.AmbientSession != null
+				? await this.MongoCollection.ReplaceOneAsync(SessionContainer.AmbientSession, filter, entity, new UpdateOptions { IsUpsert = upsert }).ConfigureAwait(false)
 				: await this.MongoCollection.ReplaceOneAsync(filter, entity, new UpdateOptions { IsUpsert = upsert }).ConfigureAwait(false);
 		}
 
@@ -184,15 +182,26 @@ namespace JohnKnoop.MongoRepository
 				? ReturnDocument.Before
 				: ReturnDocument.After;
 
-			return await this.MongoCollection.FindOneAndUpdateAsync(
-				filter,
-				update(Builders<TEntity>.Update),
-				new FindOneAndUpdateOptions<TEntity, TReturnProjection>
-				{
-					Projection = returnProjection,
-					ReturnDocument = returnDocument,
-					IsUpsert = upsert
-				}).ConfigureAwait(false);
+			return SessionContainer.AmbientSession != null
+				? await this.MongoCollection.FindOneAndUpdateAsync(
+					SessionContainer.AmbientSession,
+					filter,
+					update(Builders<TEntity>.Update),
+					new FindOneAndUpdateOptions<TEntity, TReturnProjection>
+					{
+						Projection = returnProjection,
+						ReturnDocument = returnDocument,
+						IsUpsert = upsert
+					}).ConfigureAwait(false)
+			: await this.MongoCollection.FindOneAndUpdateAsync(
+					filter,
+					update(Builders<TEntity>.Update),
+					new FindOneAndUpdateOptions<TEntity, TReturnProjection>
+					{
+						Projection = returnProjection,
+						ReturnDocument = returnDocument,
+						IsUpsert = upsert
+					}).ConfigureAwait(false);
 		}
 
 		
@@ -211,15 +220,26 @@ namespace JohnKnoop.MongoRepository
 				? ReturnDocument.Before
 				: ReturnDocument.After;
 
-			return await this.MongoCollection.OfType<TDerived>().FindOneAndUpdateAsync(
-				filter,
-				update(Builders<TDerived>.Update),
-				new FindOneAndUpdateOptions<TDerived, TReturnProjection>
-				{
-					Projection = returnProjection,
-					ReturnDocument = returnDocument,
-					IsUpsert = upsert
-				}).ConfigureAwait(false);
+			return SessionContainer.AmbientSession != null
+				? await this.MongoCollection.OfType<TDerived>().FindOneAndUpdateAsync(
+					SessionContainer.AmbientSession,
+					filter,
+					update(Builders<TDerived>.Update),
+					new FindOneAndUpdateOptions<TDerived, TReturnProjection>
+					{
+						Projection = returnProjection,
+						ReturnDocument = returnDocument,
+						IsUpsert = upsert
+					}).ConfigureAwait(false)
+				: await this.MongoCollection.OfType<TDerived>().FindOneAndUpdateAsync(
+					filter,
+					update(Builders<TDerived>.Update),
+					new FindOneAndUpdateOptions<TDerived, TReturnProjection>
+					{
+						Projection = returnProjection,
+						ReturnDocument = returnDocument,
+						IsUpsert = upsert
+					}).ConfigureAwait(false);
 		}
 
 		public Task<TReturnProjection> FindOneAndReplaceAsync<TReturnProjection>(Expression<Func<TEntity, bool>> filter, TEntity replacement, Expression<Func<TEntity, TReturnProjection>> returnProjection, ReturnedDocumentState returnedDocumentState = ReturnedDocumentState.AfterUpdate, bool upsert = false)
@@ -289,8 +309,8 @@ namespace JohnKnoop.MongoRepository
 
 			var filter = Builders<TDerived>.Filter.Eq("_id", ObjectId.Parse(id));
 
-			return AmbientSession != null
-				? await this.MongoCollection.OfType<TDerived>().UpdateOneAsync(AmbientSession, filter, update(Builders<TDerived>.Update), options).ConfigureAwait(false)
+			return SessionContainer.AmbientSession != null
+				? await this.MongoCollection.OfType<TDerived>().UpdateOneAsync(SessionContainer.AmbientSession, filter, update(Builders<TDerived>.Update), options).ConfigureAwait(false)
 				: await this.MongoCollection.OfType<TDerived>().UpdateOneAsync(filter, update(Builders<TDerived>.Update), options).ConfigureAwait(false);
 		}
 
@@ -315,8 +335,8 @@ namespace JohnKnoop.MongoRepository
 
 			await MongoConfiguration.EnsureIndexesAndCap(MongoCollection);
 
-			return AmbientSession != null
-				? await this.MongoCollection.OfType<TDerived>().UpdateOneAsync(AmbientSession, filter, update(Builders<TDerived>.Update), options).ConfigureAwait(false)
+			return SessionContainer.AmbientSession != null
+				? await this.MongoCollection.OfType<TDerived>().UpdateOneAsync(SessionContainer.AmbientSession, filter, update(Builders<TDerived>.Update), options).ConfigureAwait(false)
 				: await this.MongoCollection.OfType<TDerived>().UpdateOneAsync(filter, update(Builders<TDerived>.Update), options).ConfigureAwait(false);
 		}
 
@@ -334,8 +354,8 @@ namespace JohnKnoop.MongoRepository
 
 			var filter = Builders<TEntity>.Filter.Eq("_id", ObjectId.Parse(id));
 
-			return AmbientSession != null
-				? await this.MongoCollection.UpdateOneAsync(AmbientSession, filter, update(Builders<TEntity>.Update), options).ConfigureAwait(false)
+			return SessionContainer.AmbientSession != null
+				? await this.MongoCollection.UpdateOneAsync(SessionContainer.AmbientSession, filter, update(Builders<TEntity>.Update), options).ConfigureAwait(false)
 				: await this.MongoCollection.UpdateOneAsync(filter, update(Builders<TEntity>.Update), options).ConfigureAwait(false);
 		}
 
@@ -357,8 +377,8 @@ namespace JohnKnoop.MongoRepository
 
 			await MongoConfiguration.EnsureIndexesAndCap(MongoCollection);
 
-			return AmbientSession != null
-				? await this.MongoCollection.UpdateOneAsync(AmbientSession, filter, update(Builders<TEntity>.Update), options).ConfigureAwait(false)
+			return SessionContainer.AmbientSession != null
+				? await this.MongoCollection.UpdateOneAsync(SessionContainer.AmbientSession, filter, update(Builders<TEntity>.Update), options).ConfigureAwait(false)
 				: await this.MongoCollection.UpdateOneAsync(filter, update(Builders<TEntity>.Update), options).ConfigureAwait(false);
 		}
 
@@ -368,8 +388,8 @@ namespace JohnKnoop.MongoRepository
 
 			await MongoConfiguration.EnsureIndexesAndCap(MongoCollection);
 
-			return AmbientSession != null
-				? await this.MongoCollection.UpdateOneAsync(AmbientSession, filter, update, new UpdateOptions { IsUpsert = upsert }).ConfigureAwait(false)
+			return SessionContainer.AmbientSession != null
+				? await this.MongoCollection.UpdateOneAsync(SessionContainer.AmbientSession, filter, update, new UpdateOptions { IsUpsert = upsert }).ConfigureAwait(false)
 				: await this.MongoCollection.UpdateOneAsync(filter, update, new UpdateOptions { IsUpsert = upsert }).ConfigureAwait(false);
 		}
 
@@ -378,6 +398,8 @@ namespace JohnKnoop.MongoRepository
 		/// </summary>
 		public async Task<BulkWriteResult<TEntity>> UpdateOneBulkAsync(IEnumerable<UpdateOneCommand<TEntity>> commands)
 		{
+			TryAutoEnlistWithCurrentTransactionScope();
+
 			await MongoConfiguration.EnsureIndexesAndCap(MongoCollection);
 
 			var cmds = commands.Select(cmd =>
@@ -391,8 +413,8 @@ namespace JohnKnoop.MongoRepository
 				return null;
 			}
 
-			return AmbientSession != null
-				? await this.MongoCollection.BulkWriteAsync(AmbientSession, cmds).ConfigureAwait(false)
+			return SessionContainer.AmbientSession != null
+				? await this.MongoCollection.BulkWriteAsync(SessionContainer.AmbientSession, cmds).ConfigureAwait(false)
 				: await this.MongoCollection.BulkWriteAsync(cmds).ConfigureAwait(false);
 		}
 
@@ -417,8 +439,8 @@ namespace JohnKnoop.MongoRepository
 
 			if (cmds.Any())
 			{
-				return AmbientSession != null
-					? await this.MongoCollection.OfType<TDerived>().BulkWriteAsync(AmbientSession, cmds).ConfigureAwait(false)
+				return SessionContainer.AmbientSession != null
+					? await this.MongoCollection.OfType<TDerived>().BulkWriteAsync(SessionContainer.AmbientSession, cmds).ConfigureAwait(false)
 					: await this.MongoCollection.OfType<TDerived>().BulkWriteAsync(cmds).ConfigureAwait(false);
 			}
 
@@ -436,8 +458,8 @@ namespace JohnKnoop.MongoRepository
 
 			await MongoConfiguration.EnsureIndexesAndCap(MongoCollection);
 
-			await (AmbientSession != null
-				? this.MongoCollection.UpdateManyAsync(AmbientSession, filter, update(Builders<TEntity>.Update), options).ConfigureAwait(false)
+			await (SessionContainer.AmbientSession != null
+				? this.MongoCollection.UpdateManyAsync(SessionContainer.AmbientSession, filter, update(Builders<TEntity>.Update), options).ConfigureAwait(false)
 				: this.MongoCollection.UpdateManyAsync(filter, update(Builders<TEntity>.Update), options).ConfigureAwait(false));
 		}
 
@@ -452,8 +474,8 @@ namespace JohnKnoop.MongoRepository
 
 			await MongoConfiguration.EnsureIndexesAndCap(MongoCollection);
 
-			await (AmbientSession != null
-				? this.MongoCollection.OfType<TDerived>().UpdateManyAsync(AmbientSession, filter, update(Builders<TDerived>.Update), options).ConfigureAwait(false)
+			await (SessionContainer.AmbientSession != null
+				? this.MongoCollection.OfType<TDerived>().UpdateManyAsync(SessionContainer.AmbientSession, filter, update(Builders<TDerived>.Update), options).ConfigureAwait(false)
 				: this.MongoCollection.OfType<TDerived>().UpdateManyAsync(filter, update(Builders<TDerived>.Update), options).ConfigureAwait(false));
 		}
 
@@ -497,10 +519,10 @@ namespace JohnKnoop.MongoRepository
 			var collection = MongoCollection.Database.GetCollection<BsonDocument>(counterCollectionName);
 			var fieldDefinition = new StringFieldDefinition<BsonDocument, long>(fieldName);
 
-			if (AmbientSession != null)
+			if (SessionContainer.AmbientSession != null)
 			{
 				var newCounterState = await collection.FindOneAndUpdateAsync<BsonDocument>(
-					session: AmbientSession,
+					session: SessionContainer.AmbientSession,
 					filter: x => true,
 					update: Builders<BsonDocument>.Update.Max(fieldDefinition, newValue),
 					options: new FindOneAndUpdateOptions<BsonDocument, BsonDocument>
@@ -546,10 +568,10 @@ namespace JohnKnoop.MongoRepository
 			var collection = MongoCollection.Database.GetCollection<BsonDocument>(counterCollectionName);
 			var fieldDefinition = new StringFieldDefinition<BsonDocument, long>(fieldName);
 
-			if (AmbientSession != null)
+			if (SessionContainer.AmbientSession != null)
 			{
 				await collection.UpdateOneAsync(
-					session: AmbientSession,
+					session: SessionContainer.AmbientSession,
 					filter: x => true,
 					update: Builders<BsonDocument>.Update.Set(fieldDefinition, newValue),
 					options: new UpdateOptions
@@ -587,10 +609,10 @@ namespace JohnKnoop.MongoRepository
 			var collection = MongoCollection.Database.GetCollection<BsonDocument>(counterCollectionName);
 			var fieldDefinition = new StringFieldDefinition<BsonDocument, long>(fieldName);
 
-			if (AmbientSession != null)
+			if (SessionContainer.AmbientSession != null)
 			{
 				var result = await collection.FindOneAndUpdateAsync<BsonDocument>(
-					session: AmbientSession,
+					session: SessionContainer.AmbientSession,
 					filter: x => true,
 					update: Builders<BsonDocument>.Update.Inc(fieldDefinition, incrementBy),
 					options: new FindOneAndUpdateOptions<BsonDocument>
@@ -631,8 +653,8 @@ namespace JohnKnoop.MongoRepository
 
 			await MongoConfiguration.EnsureIndexesAndCap(MongoCollection);
 
-			return AmbientSession != null
-				? await this.MongoCollection.BulkWriteAsync(AmbientSession, commands.Select(cmd => new ReplaceOneModel<TEntity>(cmd.Filter(Builders<TEntity>.Filter), cmd.Replacement)
+			return SessionContainer.AmbientSession != null
+				? await this.MongoCollection.BulkWriteAsync(SessionContainer.AmbientSession, commands.Select(cmd => new ReplaceOneModel<TEntity>(cmd.Filter(Builders<TEntity>.Filter), cmd.Replacement)
 				{
 					IsUpsert = upsert
 				})).ConfigureAwait(false)
@@ -650,8 +672,8 @@ namespace JohnKnoop.MongoRepository
 
 				await MongoConfiguration.EnsureIndexesAndCap(MongoCollection).ConfigureAwait(false);
 
-				await (AmbientSession != null
-					? this.MongoCollection.InsertManyAsync(AmbientSession, entities).ConfigureAwait(false)
+				await (SessionContainer.AmbientSession != null
+					? this.MongoCollection.InsertManyAsync(SessionContainer.AmbientSession, entities).ConfigureAwait(false)
 					: this.MongoCollection.InsertManyAsync(entities).ConfigureAwait(false));
 			}
 		}
@@ -664,8 +686,8 @@ namespace JohnKnoop.MongoRepository
 
 				await MongoConfiguration.EnsureIndexesAndCap(MongoCollection).ConfigureAwait(false);
 
-				await (AmbientSession != null
-					? this.MongoCollection.OfType<TDerivedEntity>().InsertManyAsync(AmbientSession, entities).ConfigureAwait(false)
+				await (SessionContainer.AmbientSession != null
+					? this.MongoCollection.OfType<TDerivedEntity>().InsertManyAsync(SessionContainer.AmbientSession, entities).ConfigureAwait(false)
 					: this.MongoCollection.OfType<TDerivedEntity>().InsertManyAsync(entities).ConfigureAwait(false));
 			}
 		}
@@ -770,9 +792,9 @@ namespace JohnKnoop.MongoRepository
 
 		private async Task<TOperationReturnType> WithTransaction<TOperationReturnType>(Func<IClientSessionHandle, Task<TOperationReturnType>> operation)
 		{
-			if (AmbientSession != null)
+			if (SessionContainer.AmbientSession != null)
 			{
-				return await operation(AmbientSession);
+				return await operation(SessionContainer.AmbientSession);
 			}
 			else
 			{
@@ -788,9 +810,9 @@ namespace JohnKnoop.MongoRepository
 
 		private async Task WithTransaction(Func<IClientSessionHandle, Task> operation)
 		{
-			if (AmbientSession != null)
+			if (SessionContainer.AmbientSession != null)
 			{
-				await operation(AmbientSession);
+				await operation(SessionContainer.AmbientSession);
 			}
 			else
 			{
@@ -814,14 +836,14 @@ namespace JohnKnoop.MongoRepository
 				{
 					var deletedObjects = objects.Select(x => new DeletedObject<TEntity>(x, this.MongoCollection.CollectionNamespace.CollectionName, DateTime.UtcNow)).ToList();
 					
-					await (AmbientSession != null
-						? this._trash.InsertManyAsync(AmbientSession, deletedObjects).ConfigureAwait(false)
+					await (SessionContainer.AmbientSession != null
+						? this._trash.InsertManyAsync(SessionContainer.AmbientSession, deletedObjects).ConfigureAwait(false)
 						: this._trash.InsertManyAsync(deletedObjects).ConfigureAwait(false));
 				}
 			}
 
-			return AmbientSession != null
-				? await this.MongoCollection.DeleteManyAsync(AmbientSession, filter).ConfigureAwait(false)
+			return SessionContainer.AmbientSession != null
+				? await this.MongoCollection.DeleteManyAsync(SessionContainer.AmbientSession, filter).ConfigureAwait(false)
 				: await this.MongoCollection.DeleteManyAsync(filter).ConfigureAwait(false);
 		}
 
@@ -886,8 +908,8 @@ namespace JohnKnoop.MongoRepository
 			}
 			else
 			{
-				return (AmbientSession != null
-					? await this.MongoCollection.DeleteOneAsync(AmbientSession, filter).ConfigureAwait(false)
+				return (SessionContainer.AmbientSession != null
+					? await this.MongoCollection.DeleteOneAsync(SessionContainer.AmbientSession, filter).ConfigureAwait(false)
 					: await this.MongoCollection.DeleteOneAsync(filter).ConfigureAwait(false));
 			}
 		}
@@ -908,9 +930,18 @@ namespace JohnKnoop.MongoRepository
 
 		public void EnlistWithCurrentTransactionScope(int maxRetries = 0)
 		{
-			if (_ambientSession.Value != null)
+			var ambientTransactionId = System.Transactions.Transaction.Current.TransactionInformation.LocalIdentifier;
+
+			if (SessionContainer.AmbientSession != null)
 			{
 				// Already enlisted
+				return;
+			}
+
+			if (SessionContainer.SessionsByTransactionIdentifier.ContainsKey(ambientTransactionId))
+			{
+				// There is a session started already, but the AsyncLocal doesn't give it to us
+				SessionContainer.SetSession(SessionContainer.SessionsByTransactionIdentifier[ambientTransactionId]);
 				return;
 			}
 
@@ -924,9 +955,13 @@ namespace JohnKnoop.MongoRepository
 			var session = MongoCollection.Database.Client.StartSession();
 			session.StartTransaction();
 
-			_ambientSession.Value = session;
+			SessionContainer.SetSession(session);
+			SessionContainer.SessionsByTransactionIdentifier.TryAdd(System.Transactions.Transaction.Current.TransactionInformation.LocalIdentifier, session);
 
-			System.Transactions.Transaction.Current.TransactionCompleted += (sender, e) => _ambientSession.Value = null;
+			System.Transactions.Transaction.Current.TransactionCompleted += (sender, e) => {
+				SessionContainer.SetSession(null);
+				SessionContainer.SessionsByTransactionIdentifier.TryRemove(ambientTransactionId, out _);
+			};
 
 			var enlistment = new RetryingTransactionEnlistment(session, maxRetries);
 			System.Transactions.Transaction.Current.EnlistVolatile(enlistment, System.Transactions.EnlistmentOptions.None);
@@ -939,9 +974,9 @@ namespace JohnKnoop.MongoRepository
 			var session = MongoCollection.Database.Client.StartSession(sessionOptions);
 			session.StartTransaction(transactionOptions);
 
-			_ambientSession.Value = session;
+			SessionContainer.SetSession(session);
 
-			return new Transaction(session, committed => _ambientSession.Value = null);
+			return new Transaction(session, committed => SessionContainer.SetSession(null));
 		}
 
 		#region Find
@@ -1192,6 +1227,30 @@ namespace JohnKnoop.MongoRepository
 			return result.DeletedCount;
 		}
 
+		public async Task<TReturn> WithTransactionAsync<TReturn>(Func<Task<TReturn>> transactionBody, TransactionType type = TransactionType.MongoDB, int maxRetries = 0)
+		{
+			if (type == TransactionType.TransactionScope)
+			{
+				using (var trans = new TransactionScope(TransactionScopeAsyncFlowOption.Enabled))
+				{
+					EnlistWithCurrentTransactionScope(maxRetries);
+
+					var result = await transactionBody();
+					trans.Complete();
+
+					return result;
+				}
+			}
+			else
+			{
+				using (var session = await MongoCollection.Database.Client.StartSessionAsync())
+				{
+					SessionContainer.SetSession(session);
+					return await session.WithTransactionAsync(async (session, cancel) => await transactionBody());
+				}
+			}
+		}
+
 		public async Task WithTransactionAsync(Func<Task> transactionBody, TransactionType type = TransactionType.MongoDB, int maxRetries = 0)
 		{
 			if (type == TransactionType.TransactionScope)
@@ -1200,16 +1259,19 @@ namespace JohnKnoop.MongoRepository
 				{
 					EnlistWithCurrentTransactionScope(maxRetries);
 
-					await transactionBody();
+					await transactionBody().ConfigureAwait(false);
 					trans.Complete();
 				}
 			}
 			else
 			{
-				using (var transaction = StartTransaction())
+				using (var session = await MongoCollection.Database.Client.StartSessionAsync())
 				{
-					await transaction.RetryAsync(transactionBody, maxRetries);
-					await transaction.CommitAsync();
+					SessionContainer.SetSession(session);
+					await session.WithTransactionAsync(async (session, cancel) => {
+						await transactionBody().ConfigureAwait(false);
+						return 0;
+					});
 				}
 			}
 		}
@@ -1255,8 +1317,8 @@ namespace JohnKnoop.MongoRepository
 			}
 			else
 			{
-				return (AmbientSession != null
-					? await collection.FindOneAndDeleteAsync(AmbientSession, filter).ConfigureAwait(false)
+				return (SessionContainer.AmbientSession != null
+					? await collection.FindOneAndDeleteAsync(SessionContainer.AmbientSession, filter).ConfigureAwait(false)
 					: await collection.FindOneAndDeleteAsync(filter).ConfigureAwait(false));
 			}
 		}

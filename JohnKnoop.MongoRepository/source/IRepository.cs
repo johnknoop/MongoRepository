@@ -201,6 +201,13 @@ namespace JohnKnoop.MongoRepository
 		/// </summary>
 		/// <param name="maxRetries">If 0, it will retry forever.</param>
 		Task WithTransactionAsync(Func<Task> transactionBody, TransactionType type = TransactionType.MongoDB, int maxRetries = default);
+
+		/// <summary>
+		/// Starts a new transaction and executes the provided delegate.
+		/// Will retry on TransientTransactionError.
+		/// </summary>
+		/// <param name="maxRetries">If 0, it will retry forever.</param>
+		Task<TReturn> WithTransactionAsync<TReturn>(Func<Task<TReturn>> transactionBody, TransactionType type = TransactionType.MongoDB, int maxRetries = default);
 	}
 
 	public enum TransactionType

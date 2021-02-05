@@ -112,24 +112,15 @@ namespace JohnKnoop.MongoRepository.IntegrationTests
 		}
 
 		[Fact]
-		public async Task ReproduceAutoEnlistIssue()
+		public async Task AutomaticallyEnlistsToAmbientTransaction()
 		{
-			/*
-			 This test reproduces an error with AutoEnlist.
-			 If the enlistment is made implicitly by ReplaceOneAsync,
-			 then an error will happen later.
-
-			 If you add a manual "repo.EnlistWith..." before the ReplaceOneAsync call,
-			 then the error does not occur.
-			 */
-
 			var throwingDummy = new ThrowingDummy(4);
 			var repo = _mongoClient.GetRepository<ArrayContainer>();
 
 			var doc = new ArrayContainer(new List<Dummy> { new Dummy("olle"), new Dummy("bengt") }, "roy");
 			await repo.InsertAsync(doc);
 
-			using (var trans = new TransactionScope(TransactionScopeAsyncFlowOption.Enabled))
+			await repo.WithTransactionAsync(async () =>
 			{
 				doc.Dummies.Add(new Dummy("rolle"));
 
@@ -142,9 +133,7 @@ namespace JohnKnoop.MongoRepository.IntegrationTests
 					x => x.Id == doc.Id,
 					x => x.Push(x => x.Dummies, new Dummy("fia"))
 				);
-
-				trans.Complete();
-			}
+			}, TransactionType.TransactionScope);
 
 			var allSaved = await _mongoClient.GetRepository<ArrayContainer>().GetAll().ToListAsync();
 
@@ -190,23 +179,41 @@ namespace JohnKnoop.MongoRepository.IntegrationTests
 		}
 
 		[Fact]
-		public async Task NativeTransaction_WithMaxRetries_ShouldRetryUntilMaxRetriesReached()
+		public async Task NativeTransaction_ReturnsValue()
 		{
-			var throwingDummy = new ThrowingDummy(5);
-			var repo = _mongoClient.GetRepository<MyStandaloneEntity>();
+			var repo = _mongoClient.GetRepository<ArrayContainer>();
+			var doc = new ArrayContainer(new List<Dummy> { new Dummy("olle"), new Dummy("bengt") }, "roy");
+			await repo.InsertAsync(doc);
 
-			await Assert.ThrowsAsync<MongoException>(async () =>
+			var result = await repo.WithTransactionAsync(async () =>
 			{
-				await repo.WithTransactionAsync(async () =>
-				{
-					throwingDummy.TryMe();
-					await repo.InsertAsync(new MyStandaloneEntity("test", new SharedClass("test")));
-				}, maxRetries: 3);
-			});
+				return await repo.FindOneAndUpdateAsync(
+					filter: x => x.Id == doc.Id,
+					update: x => x.AddToSet(y => y.Dummies, new Dummy("steve")),
+					returnProjection: x => x.Dummies
+				);
+			}, TransactionType.MongoDB);
 
-			var allSaved = await _mongoClient.GetRepository<MyStandaloneEntity>().GetAll().ToListAsync();
+			result.Should().HaveCount(3);
+		}
 
-			allSaved.Should().BeEmpty();
+		[Fact]
+		public async Task MongoDbTransaction_ReturnsValue()
+		{
+			var repo = _mongoClient.GetRepository<ArrayContainer>();
+			var doc = new ArrayContainer(new List<Dummy> { new Dummy("olle"), new Dummy("bengt") }, "roy");
+			await repo.InsertAsync(doc);
+
+			var result = await repo.WithTransactionAsync(async () =>
+			{
+				return await repo.FindOneAndUpdateAsync(
+					filter: x => x.Id == doc.Id,
+					update: x => x.AddToSet(y => y.Dummies, new Dummy("steve")),
+					returnProjection: x => x.Dummies
+				);
+			}, TransactionType.TransactionScope);
+
+			result.Should().HaveCount(3);
 		}
 	}
 }
