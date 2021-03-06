@@ -36,7 +36,7 @@ namespace JohnKnoop.MongoRepository.IntegrationTests
 
 	static class MyStaticInserter
 	{
-		public static async Task InsertDocument(DummyEntity entity, IRepository<DummyEntity> repo)
+		public static async Task InsertDocument<T>(T entity, IRepository<T> repo)
 		{
 			await repo.InsertAsync(entity);
 		}
@@ -61,10 +61,12 @@ namespace JohnKnoop.MongoRepository.IntegrationTests
 
 			_mongoClient.GetRepository<DummyEntity>("tenant_a").DeleteManyAsync(x => true).Wait();
 			_mongoClient.GetRepository<DummyEntity>("tenant_b").DeleteManyAsync(x => true).Wait();
+			_mongoClient.GetRepository<ArrayContainer>("tenant_c").DeleteManyAsync(x => true).Wait();
 			_mongoClient.GetRepository<DummyEntity>().DeleteManyAsync(x => true).Wait();
 
 			_mongoClient.GetRepository<DummyEntity>("tenant_a").PermamentlyDeleteSoftDeletedAsync(x => true).Wait();
 			_mongoClient.GetRepository<DummyEntity>("tenant_b").PermamentlyDeleteSoftDeletedAsync(x => true).Wait();
+			_mongoClient.GetRepository<ArrayContainer>("tenant_c").PermamentlyDeleteSoftDeletedAsync(x => true).Wait();
 			_mongoClient.GetRepository<DummyEntity>().PermamentlyDeleteSoftDeletedAsync(x => true).Wait();
 		}
 
@@ -248,7 +250,10 @@ namespace JohnKnoop.MongoRepository.IntegrationTests
 				{
 					var repo = _mongoClient.GetRepository<DummyEntity>("tenant_b");
 
-					await Task.Run(async () => await repo.InsertAsync(new DummyEntity("Hola!")));
+					await Task.Delay(1);
+
+					await MyStaticInserter.InsertDocument(new DummyEntity("Hola senor"), repo);
+					MyStaticInserter.InsertDocument(new DummyEntity("Hola senor"), repo).Wait();
 
 					// No commit
 				}
@@ -259,6 +264,7 @@ namespace JohnKnoop.MongoRepository.IntegrationTests
 				using (var transaction = new TransactionScope(TransactionScopeAsyncFlowOption.Enabled))
 				{
 					var repo = _mongoClient.GetRepository<DummyEntity>("tenant_a");
+					await Task.Delay(1);
 
 					await Task.Run(async () => await repo.InsertAsync(new DummyEntity("Hello again!")));
 
@@ -392,7 +398,7 @@ namespace JohnKnoop.MongoRepository.IntegrationTests
 		public async Task AutomaticallyEnlistsWithAmbientTransaction()
 		{
 			var throwingDummy = new ThrowingDummy(4);
-			var repo = _mongoClient.GetRepository<ArrayContainer>();
+			var repo = _mongoClient.GetRepository<ArrayContainer>("tenant_c");
 
 			var doc = new ArrayContainer(new List<Dummy> { new Dummy("olle"), new Dummy("bengt") }, "roy");
 			await repo.InsertAsync(doc);
@@ -414,7 +420,7 @@ namespace JohnKnoop.MongoRepository.IntegrationTests
 				trans.Complete();
 			}
 
-			var allSaved = await _mongoClient.GetRepository<ArrayContainer>().GetAll().ToListAsync();
+			var allSaved = await repo.GetAll().ToListAsync();
 
 			allSaved.Should().ContainSingle()
 				.Which.Dummies.Should().HaveCount(4);
