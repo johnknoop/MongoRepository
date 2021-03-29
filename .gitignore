@@ -3,3 +3,6 @@
 **/*.csproj\.user
 *.DotSettings
 launchSettings.json
+LocalDev/
+
+*.sln
