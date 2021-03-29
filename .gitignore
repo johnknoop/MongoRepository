@@ -6,3 +6,5 @@ launchSettings.json
 LocalDev/
 
 *.sln
+
+.vs/
