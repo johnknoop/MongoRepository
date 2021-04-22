@@ -5,7 +5,6 @@ using MongoDB.Driver;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 using System.Threading.Tasks;
 using Xunit;
 
@@ -42,7 +41,7 @@ namespace JohnKnoop.MongoRepository.IntegrationTests
 		[Fact]
 		public async Task CanUpdateManyDerivedEntities()
 		{
-			// Arramge
+			// Arrange
 
 			var athleteJane = new Athlete("Jane", 40, "Soccer");
 			var athleteBob = new Athlete("Bob", 33, "Snooker");

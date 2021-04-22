@@ -267,9 +267,6 @@ namespace JohnKnoop.MongoRepository
 			_onCompleted = onCompleted;
 		}
 
-		public Task RetryAsync(Func<Task> transactionBody, int maxRetries = default) =>
-			Retryer.RetryAsync(transactionBody, maxRetries);
-
 		public async Task CommitAsync(CancellationToken cancellation = default)
 		{
 			await Retryer.RetryAsync(async() => await _session.CommitTransactionAsync(cancellation));
@@ -290,7 +287,7 @@ namespace JohnKnoop.MongoRepository
 
 			if (!_isCompleted)
 			{
-				_onCompleted(false); 
+				_onCompleted(false);
 			}
 		}
 	}
@@ -301,6 +298,14 @@ namespace JohnKnoop.MongoRepository
 
 		public static async Task RetryAsync(Func<Task> transactionBody, int maxRetries = default)
 		{
+			await RetryAsync<object>(async () => {
+				await transactionBody();
+				return null;
+			}, maxRetries);
+		}
+
+		public static async Task<TReturnType> RetryAsync<TReturnType>(Func<Task<TReturnType>> transactionBody, int maxRetries = default)
+		{
 			var tries = 0;
 			var startTime = DateTime.UtcNow;
 
@@ -308,8 +313,8 @@ namespace JohnKnoop.MongoRepository
 			{
 				try
 				{
-					await transactionBody();
-					return;
+					var result = await transactionBody();
+					return result;
 				}
 				catch (MongoException ex) when (ex.HasErrorLabel("TransientTransactionError"))
 				{

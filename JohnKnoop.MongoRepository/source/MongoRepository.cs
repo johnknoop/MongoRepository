@@ -1235,7 +1235,7 @@ namespace JohnKnoop.MongoRepository
 				{
 					EnlistWithCurrentTransactionScope(maxRetries);
 
-					var result = await transactionBody();
+					var result = await Retryer.RetryAsync(transactionBody, maxRetries).ConfigureAwait(false);
 					trans.Complete();
 
 					return result;
@@ -1259,7 +1259,7 @@ namespace JohnKnoop.MongoRepository
 				{
 					EnlistWithCurrentTransactionScope(maxRetries);
 
-					await transactionBody().ConfigureAwait(false);
+					await Retryer.RetryAsync(transactionBody, maxRetries).ConfigureAwait(false);
 					trans.Complete();
 				}
 			}
