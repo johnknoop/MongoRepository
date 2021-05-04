@@ -199,6 +199,7 @@ namespace JohnKnoop.MongoRepository
 		/// Starts a new transaction and executes the provided delegate.
 		/// Will retry on TransientTransactionError.
 		/// </summary>
+		/// <param name="transactionBody">Needs to be idempotent because of potential retries</param>
 		/// <param name="maxRetries">If 0, it will retry forever.</param>
 		Task WithTransactionAsync(Func<Task> transactionBody, TransactionType type = TransactionType.MongoDB, int maxRetries = default);
 
@@ -206,6 +207,7 @@ namespace JohnKnoop.MongoRepository
 		/// Starts a new transaction and executes the provided delegate.
 		/// Will retry on TransientTransactionError.
 		/// </summary>
+		/// <param name="transactionBody">Needs to be idempotent because of potential retries</param>
 		/// <param name="maxRetries">If 0, it will retry forever.</param>
 		Task<TReturn> WithTransactionAsync<TReturn>(Func<Task<TReturn>> transactionBody, TransactionType type = TransactionType.MongoDB, int maxRetries = default);
 	}

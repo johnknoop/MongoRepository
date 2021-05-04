@@ -1231,15 +1231,16 @@ namespace JohnKnoop.MongoRepository
 		{
 			if (type == TransactionType.TransactionScope)
 			{
-				using (var trans = new TransactionScope(TransactionScopeAsyncFlowOption.Enabled))
-				{
-					EnlistWithCurrentTransactionScope(maxRetries);
+				return await Retryer.RetryAsync(async () => {
+					using (var trans = new TransactionScope(TransactionScopeAsyncFlowOption.Enabled))
+					{
+						EnlistWithCurrentTransactionScope(maxRetries);
+						var result = await transactionBody().ConfigureAwait(false);
+						trans.Complete();
 
-					var result = await Retryer.RetryAsync(transactionBody, maxRetries).ConfigureAwait(false);
-					trans.Complete();
-
-					return result;
-				}
+						return result;
+					}
+				}, maxRetries);
 			}
 			else
 			{
@@ -1255,13 +1256,14 @@ namespace JohnKnoop.MongoRepository
 		{
 			if (type == TransactionType.TransactionScope)
 			{
-				using (var trans = new TransactionScope(TransactionScopeAsyncFlowOption.Enabled))
-				{
-					EnlistWithCurrentTransactionScope(maxRetries);
-
-					await Retryer.RetryAsync(transactionBody, maxRetries).ConfigureAwait(false);
-					trans.Complete();
-				}
+				await Retryer.RetryAsync(async () => {
+					using (var trans = new TransactionScope(TransactionScopeAsyncFlowOption.Enabled))
+					{
+						EnlistWithCurrentTransactionScope(maxRetries);
+						await transactionBody().ConfigureAwait(false);
+						trans.Complete();
+					}
+				}, maxRetries);
 			}
 			else
 			{
