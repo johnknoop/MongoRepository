@@ -5,36 +5,36 @@ An easy-to-configure, powerful repository for MongoDB with support for multi-ten
 
 - [Getting started](#getting-started)
 - [Querying](#querying)
-	- [Get by id](#get-by-id)
-		- [Projection](#get-by-id)
-	- [Find by expression](#find-by-expression)
-		- [Count, Sort, Skip, Limit, Project, Cursor](#find-by-expression)
-	- [LINQ](#linq)
+    - [Get by id](#get-by-id)
+        - [Projection](#get-by-id)
+    - [Find by expression](#find-by-expression)
+        - [Count, Sort, Skip, Limit, Project, Cursor](#find-by-expression)
+    - [LINQ](#linq)
 - [Inserting, updating and deleting](#inserting-updating-and-deleting)
-	- [InsertAsync, InsertManyAsync](#insertasync-insertmanyasync)
-	- [UpdateOneAsync, UpdateManyAsync](#updateoneasync-Updatemanyasync)
-	- [UpdateOneBulkAsync](#updateonebulkasync)
-	- [FindOneAndUpdateAsync](#FindOneAndUpdateasync),
-	- [FindOneAndReplaceAsync](documentation under construction),
-	- [FindOneOrInsertAsync](documentation under construction),
-	- [Aggregation](#aggregation)
-	- [Deleting](#deleting)
-		- [Soft-deletes](#soft-deleting)
-	- [Transactions](#transactions)
+    - [InsertAsync, InsertManyAsync](#insertasync-insertmanyasync)
+    - [UpdateOneAsync, UpdateManyAsync](#updateoneasync-Updatemanyasync)
+    - [UpdateOneBulkAsync](#updateonebulkasync)
+    - [FindOneAndUpdateAsync](#FindOneAndUpdateasync),
+    - [FindOneAndReplaceAsync](documentation under construction),
+    - [FindOneOrInsertAsync](documentation under construction),
+    - [Aggregation](#aggregation)
+    - [Deleting](#deleting)
+        - [Soft-deletes](#soft-deleting)
+    - [Transactions](#transactions)
 - [Advanced features](#advanced-features)
-	- [Counters](#counters)
-	- [Deleting properties](#deleting-properties)
+    - [Counters](#counters)
+    - [Deleting properties](#deleting-properties)
 - Configuration
-	- [Multi-tenancy](#multi-tenancy)
-	- [Polymorphism](#polymorphism)
-	- [Indices](#indices)
-	- [Capped collections](#capped-collections)
-	- [Unconventional id properties](#unconventional-id-properties)
-	- [DI frameworks](#di-frameworks)
-		- [Ninject](#ninject)
-		- [.Net Core](#net-core)
+    - [Multi-tenancy](#multi-tenancy)
+    - [Polymorphism](#polymorphism)
+    - [Indices](#indices)
+    - [Capped collections](#capped-collections)
+    - [Unconventional id properties](#unconventional-id-properties)
+    - [DI frameworks](#di-frameworks)
+        - [Ninject](#ninject)
+        - [.Net Core](#net-core)
 - Contribute
-	- [Design philosophy](#design-philosophy)
+    - [Design philosophy](#design-philosophy)
 
 ## Getting started
 
@@ -44,18 +44,18 @@ An easy-to-configure, powerful repository for MongoDB with support for multi-ten
 
 ```csharp
 MongoRepository.Configure()
-	.Database("HeadOffice", db => db
-		.Map<Employee>()
-	)
-	.DatabasePerTenant("Zoo", db => db
-		.Map<AnimalKeeper>()
-		.Map<Enclosure>("Enclosures")
-		.Map<Animal>("Animals", x => x
-			.WithIdProperty(animal => animal.NonConventionalId)
-			.WithIndex(animal => animal.Name, unique: true)
-		)
-	)
-	.Build();
+    .Database("HeadOffice", db => db
+        .Map<Employee>()
+    )
+    .DatabasePerTenant("Zoo", db => db
+        .Map<AnimalKeeper>()
+        .Map<Enclosure>("Enclosures")
+        .Map<Animal>("Animals", x => x
+            .WithIdProperty(animal => animal.NonConventionalId)
+            .WithIndex(animal => animal.Name, unique: true)
+        )
+    )
+    .Build();
 ```
 [See more options](#configuration)
 ### ...then start hacking away
@@ -75,10 +75,10 @@ await repository.GetAsync<SubType>("id");
 // With projection
 await repository.GetAsync("id", x => x.TheOnlyPropertyIWant);
 await repository.GetAsync<SubType>("id", x => new
-	{
-		x.SomeProperty,
-		x.SomeOtherProperty
-	}
+    {
+        x.SomeProperty,
+        x.SomeOtherProperty
+    }
 );
 ```
 
@@ -95,10 +95,10 @@ Examples:
 
 ```csharp
 var dottedAnimals = await repository
-	.Find(x => x.Coat == "dotted")
-	.Limit(10)
-	.Project(x => x.Species)
-	.ToListAsync()
+    .Find(x => x.Coat == "dotted")
+    .Limit(10)
+    .Project(x => x.Species)
+    .ToListAsync()
 ```
 ### LINQ
 ```csharp
@@ -111,10 +111,10 @@ Examples:
 
 ```csharp
 var dottedAnimals = await repository.Query()
-	.Where(x => x.Coat == "dotted")
-	.Take(10)
-	.Select(x => x.Species)
-	.ToListAsync()
+    .Where(x => x.Coat == "dotted")
+    .Take(10)
+    .Select(x => x.Species)
+    .ToListAsync()
 ```
 ## Inserting, updating and deleting
 ### InsertAsync, InsertManyAsync
@@ -138,32 +138,32 @@ await repository.UpdateManyAsync(x => x.SomeProperty == someValue, x => x.Inc(y 
 Perform multiple update operations with different filters in one db roundtrip.
 ```csharp
 await repository.UpdateOneBulkAsync(new List<UpdateOneCommand<MyEntity>> {
-	new UpdateOneCommand<MyEntity> {
-		Filter = x => x.SomeProperty = "foo",
-		Update = x => x.Set(y => y.SomeOtherProperty, 10)
-	},
-	new UpdateOneCommand<MyEntity> {
-		Filter = x => x.SomeProperty = "bar",
-		Update = x => x.Set(y => y.SomeOtherProperty, 20)
-	}
+    new UpdateOneCommand<MyEntity> {
+        Filter = x => x.SomeProperty = "foo",
+        Update = x => x.Set(y => y.SomeOtherProperty, 10)
+    },
+    new UpdateOneCommand<MyEntity> {
+        Filter = x => x.SomeProperty = "bar",
+        Update = x => x.Set(y => y.SomeOtherProperty, 20)
+    }
 });
 ```
 ### FindOneAndUpdateAsync
 This is a really powerful feature of MongoDB, in that it lets you update and retrieve a document atomically.
 ```csharp
 var entityAfterUpdate = await repository.FindOneAndUpdateAsync(
-	filter: x => x.SomeProperty.StartsWith("Hello"),
-	update: x => x.AddToSet(y => y.SomeCollection, someItem)
+    filter: x => x.SomeProperty.StartsWith("Hello"),
+    update: x => x.AddToSet(y => y.SomeCollection, someItem)
 );
 
 var entityAfterUpdate = await repository.FindOneAndUpdateAsync(
-	filter: x => x.SomeProperty.StartsWith("Hello"),
-	update: x => x.PullFilter(y => y.SomeCollection, y => y.SomeOtherProperty == 5),
-	returnProjection: x => new {
-		x.SomeCollection
-	},
-	returnedDocumentState: ReturnedDocumentState.AfterUpdate,
-	upsert: true
+    filter: x => x.SomeProperty.StartsWith("Hello"),
+    update: x => x.PullFilter(y => y.SomeCollection, y => y.SomeOtherProperty == 5),
+    returnProjection: x => new {
+        x.SomeCollection
+    },
+    returnedDocumentState: ReturnedDocumentState.AfterUpdate,
+    upsert: true
 );
 ```
 ### Aggregation
@@ -209,8 +209,8 @@ MongoDB 4 introduced support for multi-document transactions. We provide a simpl
 
 ```csharp
 using (var transaction = repository.StartTransaction()) {
-	// ...
-	await transaction.CommitAsync();
+    // ...
+    await transaction.CommitAsync();
 }
 ```
 
@@ -218,9 +218,9 @@ Since version 5 we also support enlisting with a `TransactionScope`. This is use
 
 ```csharp
 using (var transaction = new TransactionScope(TransactionScopeAsyncFlowOption.Enabled)) {
-	repository.EnlistWithCurrentTransactionScope();
-	// ...
-	transaction.Complete();
+    repository.EnlistWithCurrentTransactionScope();
+    // ...
+    transaction.Complete();
 }
 ```
 If you configure the repository with `.AutoEnlistWithTransactionScopes()` then it will automatically enlist to any ambient TransactionScope without the need to do it explicitly like in the example above.
@@ -231,13 +231,13 @@ MongoDB replica sets sometimes encounter transient transaction errors, in which 
 // Retry using standard MongoDB transaction
 await repo.WithTransactionAsync(async () =>
 {
-	// your code here
+    // your code here
 }, maxRetries: 3);
 
 // Retry using TransactionScope
 await repo.WithTransactionAsync(async () =>
 {
-	// your code here
+    // your code here
 }, TransactionType.TransactionScope, maxRetries: 3);
 ```
 
@@ -281,12 +281,12 @@ Database-per-tenant style multi-tenancy is supported. When defining a database, 
 
 ```csharp
 MongoRepository.Configure()
-	// Every tenant should have their own Sales database
-	.DatabasePerTenant("Sales", db => db
-		.Map<Order>()
-		.Map<Customer>("Customers")
-	)
-	.Build();
+    // Every tenant should have their own Sales database
+    .DatabasePerTenant("Sales", db => db
+        .Map<Order>()
+        .Map<Customer>("Customers")
+    )
+    .Build();
 ```
 The name of the database will be "{tenant key}_{database name}".
 
@@ -299,19 +299,19 @@ Mapping a type hierarchy to the same collection is easy. Just map the base type 
 Indices are defined when mapping a type:
 ```csharp
 MongoRepository.Configure()
-	// Every tenant should have their own Sales database
-	.Database("Zoo", db => db
-		.Map<Animal>("Animals", x => x
-			.WithIndex(a => a.Species)
-			.WithIndex(a => a.EnclosureNumber, unique: true)
-			.WithIndex(a => a.LastVaccinationDate, sparse: true)
-		)
-		.Map<FeedingRoutine>("FeedingRoutines", x => x
-			// Composite index
-			.WithIndex(new { Composite index })
-		)
-	)
-	.Build();
+    // Every tenant should have their own Sales database
+    .Database("Zoo", db => db
+        .Map<Animal>("Animals", x => x
+            .WithIndex(a => a.Species)
+            .WithIndex(a => a.EnclosureNumber, unique: true)
+            .WithIndex(a => a.LastVaccinationDate, sparse: true)
+        )
+        .Map<FeedingRoutine>("FeedingRoutines", x => x
+            // Composite index
+            .WithIndex(new { Composite index })
+        )
+    )
+    .Build();
 ```
 
 ### Capped collections
@@ -334,13 +334,13 @@ See the [repository readme](https://github.com/johnknoop/MongoRepository.DotNetC
 ```csharp
 this.Bind(typeof(IRepository<>)).ToMethod(context =>
 {
-	Type entityType = context.GenericArguments[0];
-	var mongoClient = context.Kernel.Get<IMongoClient>();
-	var tenantKey = /* Pull out your tenent key from auth ticket or Owin context or what suits you best */;
+    Type entityType = context.GenericArguments[0];
+    var mongoClient = context.Kernel.Get<IMongoClient>();
+    var tenantKey = /* Pull out your tenent key from auth ticket or Owin context or what suits you best */;
 
-	var getRepositoryMethod = typeof(MongoConfiguration).GetMethod(nameof(MongoConfiguration.GetRepository));
-	var getRepositoryMethodGeneric = getRepositoryMethod.MakeGenericMethod(entityType);
-	return getRepositoryMethodGeneric.Invoke(this, new object[] { mongoClient, tenantKey });
+    var getRepositoryMethod = typeof(MongoConfiguration).GetMethod(nameof(MongoConfiguration.GetRepository));
+    var getRepositoryMethodGeneric = getRepositoryMethod.MakeGenericMethod(entityType);
+    return getRepositoryMethodGeneric.Invoke(this, new object[] { mongoClient, tenantKey });
 });
 ```
 
