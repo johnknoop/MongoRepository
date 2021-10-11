@@ -83,8 +83,29 @@ namespace JohnKnoop.MongoRepository
 
 		public IRepository<TEntity> WithReadPreference(ReadPreference readPreference)
 		{
-			this.MongoCollection = this.MongoCollection.WithReadPreference(readPreference);
-			return this;
+			return new MongoRepository<TEntity>(
+				mongoCollection: this.MongoCollection.WithReadPreference(readPreference),
+				trash: _trash.WithReadPreference(readPreference),
+				tenantKey: _tenantKey,
+				autoEnlistWithCurrentTransactionScope: _autoEnlistWithCurrentTransactionScope);
+		}
+
+		public IRepository<TEntity> WithReadConcern(ReadConcern readConcern)
+		{
+			return new MongoRepository<TEntity>(
+				mongoCollection: this.MongoCollection.WithReadConcern(readConcern),
+				trash: _trash.WithReadConcern(readConcern),
+				tenantKey: _tenantKey,
+				autoEnlistWithCurrentTransactionScope: _autoEnlistWithCurrentTransactionScope);
+		}
+
+		public IRepository<TEntity> WithWriteConcern(WriteConcern writeConcern)
+		{
+			return new MongoRepository<TEntity>(
+				mongoCollection: this.MongoCollection.WithWriteConcern(writeConcern),
+				trash: _trash.WithWriteConcern(writeConcern),
+				tenantKey: _tenantKey,
+				autoEnlistWithCurrentTransactionScope: _autoEnlistWithCurrentTransactionScope);
 		}
 
 		public async Task DeletePropertyAsync(Expression<Func<TEntity, bool>> filterExpression, Expression<Func<TEntity, object>> propertyExpression)

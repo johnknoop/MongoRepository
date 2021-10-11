@@ -183,7 +183,11 @@ namespace JohnKnoop.MongoRepository
 		Task<TReturnProjection> FindOneAndReplaceAsync<TReturnProjection>(Expression<Func<TEntity, bool>> filter,  TEntity replacement, ProjectionDefinition<TEntity, TReturnProjection> returnProjection, ReturnedDocumentState returnedDocumentState = ReturnedDocumentState.AfterUpdate, bool upsert = false);
 		
 		Task<TReturnProjection> FindOneOrInsertAsync<TReturnProjection>(Expression<Func<TEntity, bool>> filter, TEntity entity, Expression<Func<TEntity, TReturnProjection>> returnProjection, ReturnedDocumentState returnedDocumentState = ReturnedDocumentState.AfterUpdate);
-		
+
+		IRepository<TEntity> WithReadPreference(ReadPreference readPreference);
+		IRepository<TEntity> WithReadConcern(ReadConcern readConcern);
+		IRepository<TEntity> WithWriteConcern(WriteConcern writeConcern);
+
 		/// <summary>
 		/// Enlists with the ambient TransactionScope, and fails or succeeds as it fails or succeeds.
 		/// This is useful to be able to put a transactional boundary around MongoDB operations
@@ -193,7 +197,6 @@ namespace JohnKnoop.MongoRepository
 		/// </summary>
 		void EnlistWithCurrentTransactionScope(int maxRetries = default);
 		Transaction StartTransaction(ClientSessionOptions sessionOptions = null, MongoDB.Driver.TransactionOptions transactionOptions = null);
-		IRepository<TEntity> WithReadPreference(ReadPreference readPreference);
 
 		/// <summary>
 		/// Starts a new transaction and executes the provided delegate.
