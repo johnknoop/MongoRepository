@@ -1,9 +1,44 @@
 # JohnKnoop.MongoRepository
 
-An easy-to-configure, powerful repository for MongoDB with support for multi-tenancy
+An easy-to-configure extension to the MongoDB driver, adding support for: \
+\
+✔️ Multi-tenancy \
+✔️ Simplified transaction handling, including support for [TransactionScope](#transactions) \
+✔️ [Soft-deletes](#soft-deleting)
 
+## Install via NuGet
 
-- [Getting started](#getting-started)
+    Install-Package JohnKnoop.MongoRepository
+
+### Configure mappings, indices, multitenancy etc with a few lines of code:
+
+```csharp
+MongoRepository.Configure()
+    .Database("HeadOffice", db => db
+        .Map<Employee>()
+    )
+    .DatabasePerTenant("Zoo", db => db
+        .Map<AnimalKeeper>()
+        .Map<Enclosure>("Enclosures")
+        .Map<Animal>("Animals", x => x
+            .WithIdProperty(animal => animal.NonConventionalId)
+            .WithIndex(animal => animal.Name, unique: true)
+        )
+    )
+    .Build();
+```
+[See more options](#configuration)
+### ...then start hacking away
+
+```csharp
+var employeeRepository = mongoClient.GetRepository<Employee>();
+var animalRepository = mongoClient.GetRepository<Animal>(tenantKey);
+```
+
+In the real world you'd typically resolve `IRepository<T>` through your dependency resolution system. See the section about [DI frameworks](#di-frameworks) for more info.
+
+## Getting started
+
 - [Querying](#querying)
     - [Get by id](#get-by-id)
         - [Projection](#get-by-id)
@@ -36,34 +71,6 @@ An easy-to-configure, powerful repository for MongoDB with support for multi-ten
 - Contribute
     - [Design philosophy](#design-philosophy)
 
-## Getting started
-
-    PM> Install-Package JohnKnoop.MongoRepository
-
-### Configure mappings, indices, multitenancy etc with a few lines of code...
-
-```csharp
-MongoRepository.Configure()
-    .Database("HeadOffice", db => db
-        .Map<Employee>()
-    )
-    .DatabasePerTenant("Zoo", db => db
-        .Map<AnimalKeeper>()
-        .Map<Enclosure>("Enclosures")
-        .Map<Animal>("Animals", x => x
-            .WithIdProperty(animal => animal.NonConventionalId)
-            .WithIndex(animal => animal.Name, unique: true)
-        )
-    )
-    .Build();
-```
-[See more options](#configuration)
-### ...then start hacking away
-
-```csharp
-var employeeRepository = mongoClient.GetRepository<Employee>();
-var animalRepository = mongoClient.GetRepository<Animal>(tenantKey);
-```
 
 ## Querying
 
