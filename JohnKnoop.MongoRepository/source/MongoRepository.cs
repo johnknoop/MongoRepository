@@ -73,6 +73,8 @@ namespace JohnKnoop.MongoRepository
 		/// </summary>
 		private readonly string _tenantKey;
 
+		internal IMongoCollection<TEntity> Collection => this.MongoCollection;
+
 		internal MongoRepository(IMongoCollection<TEntity> mongoCollection, IMongoCollection<SoftDeletedEntity<TEntity>> trash, string tenantKey, bool autoEnlistWithCurrentTransactionScope = false)
 		{
 			this.MongoCollection = mongoCollection;

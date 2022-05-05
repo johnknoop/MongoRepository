@@ -56,6 +56,7 @@ In the real world you'd typically resolve `IRepository<T>` through your dependen
     - [Deleting](#deleting)
         - [Soft-deletes](#soft-deleting)
     - [Transactions](#transactions)
+    - [UnionWith](#unionwith)
 - [Advanced features](#advanced-features)
     - [Counters](#counters)
     - [Deleting properties](#deleting-properties)
@@ -249,6 +250,32 @@ await repo.WithTransactionAsync(async () =>
 ```
 
 `RetryAsync` also comes with an overload that takes a number representing the max number of retries.
+
+### UnionWith
+
+This library provides an extension method to `IAggregateFluent<T>` called `UnionWith` that accepts a repository and a projection expression.
+
+```cs
+using JohnKnoop.MongoRepository.Extensions;
+
+var allContacts = await soccerPlayersRepository
+    .Aggregate()
+    .Project(x => new
+    {
+        PlayerName = x.SoccerPlayerName,
+        TeamName = x.SoccerTeamName
+    })
+    .UnionWith(
+        rugbyPlayersRepository,
+        x => new
+        {
+            PlayerName = x.RugbyPlayerName,
+            TeamName = x.RugbyTeamName
+        }
+    )
+    .SortBy(x => x.PlayerName)
+    .ToListAsync();
+```
 
 ## Advanced features
 
