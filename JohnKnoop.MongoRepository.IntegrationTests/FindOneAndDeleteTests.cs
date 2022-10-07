@@ -12,9 +12,14 @@ namespace JohnKnoop.MongoRepository.IntegrationTests
 {
 	public class MyBaseEntity
 	{
-		public MyBaseEntity(string name)
+		public MyBaseEntity(string name) : this(ObjectId.GenerateNewId().ToString(), name)
 		{
-			Id = ObjectId.GenerateNewId().ToString();
+
+		}
+
+		public MyBaseEntity(string id, string name)
+		{
+			Id = id;
 			Name = name;
 		}
 
