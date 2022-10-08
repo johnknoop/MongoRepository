@@ -49,9 +49,10 @@ In the real world you'd typically resolve `IRepository<T>` through your dependen
     - [InsertAsync, InsertManyAsync](#insertasync-insertmanyasync)
     - [UpdateOneAsync, UpdateManyAsync](#updateoneasync-Updatemanyasync)
     - [UpdateOneBulkAsync](#updateonebulkasync)
-    - [FindOneAndUpdateAsync](#FindOneAndUpdateasync),
-    - [FindOneAndReplaceAsync](documentation under construction),
-    - [FindOneOrInsertAsync](documentation under construction),
+    - [FindOneAndUpdateAsync](#FindOneAndUpdateasync)
+    - [FindOneAndReplaceAsync](documentation under construction)
+    - [FindOneOrInsertAsync](documentation under construction)
+    - [UpdateOrInsertOneAsync](#UpdateOrInsertOneAsync)
     - [Aggregation](#aggregation)
     - [Deleting](#deleting)
         - [Soft-deletes](#soft-deleting)
@@ -174,6 +175,13 @@ var entityAfterUpdate = await repository.FindOneAndUpdateAsync(
     upsert: true
 );
 ```
+
+### UpdateOrInsertOneAsync
+Let's you upsert a document of type `T` using an instance of type `T` as default and then apply updates on top of that, in an atomic operation. If the filter is matched, the default instance will not be used, and only the updates will be applied.
+
+The same result can be achieved with common UpdateOne/FindOneAndUpdate using `upsert` and a bunch of `SetOnInsert`s, but the advantage of `UpdateOrInsertOneAsync` is you don't have to add a `SetOnInsert` for each property manually.
+
+
 ### Aggregation
 ```csharp
 repository.Aggregate();
