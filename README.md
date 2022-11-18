@@ -177,7 +177,7 @@ var entityAfterUpdate = await repository.FindOneAndUpdateAsync(
 ```
 
 ### UpdateOrInsertOneAsync
-Let's you upsert a document of type `T` using an instance of type `T` as default and then apply updates on top of that, in an atomic operation. If the filter is matched, the default instance will not be used, and only the updates will be applied.
+Lets you upsert a document of type `T` using an instance of type `T` as default and then apply updates on top of that, in an atomic operation. If the filter is matched, the default instance will not be used, and only the updates will be applied.
 
 The same result can be achieved with common UpdateOne/FindOneAndUpdate using `upsert` and a bunch of `SetOnInsert`s, but the advantage of `UpdateOrInsertOneAsync` is you don't have to add a `SetOnInsert` for each property manually.
 
