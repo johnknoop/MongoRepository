@@ -313,7 +313,7 @@ await _repository.UpdateOneAsync(
     filter: x => x.Title == "Game of Thrones",
     update: x => x.Set(
         ArrayFilters.CreateArrayFilterPath<Show>()
-            .SelectArray(x => x.Seasons, "a")
+            .SelectEnumerable(x => x.Seasons, "a")
             .SelectEnumerable(x => x.Episodes, "b")
             .SelectProperty(x => x.Title)
             .Build(),
