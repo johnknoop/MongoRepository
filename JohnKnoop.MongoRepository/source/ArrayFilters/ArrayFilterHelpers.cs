@@ -13,7 +13,7 @@ namespace JohnKnoop.MongoRepository
 {
 	public class ArrayFiltersReferenceBuilder<TEntity>
 	{
-		public InitializedArrayFiltersReferenceBuilder<TArrayElement> SelectArray<TArrayElement>(Expression<Func<TEntity, IEnumerable<TArrayElement>>> array, string filterName)
+		public InitializedArrayFiltersReferenceBuilder<TArrayElement> SelectEnumerable<TArrayElement>(Expression<Func<TEntity, IEnumerable<TArrayElement>>> array, string filterName)
 		{
 			return new InitializedArrayFiltersReferenceBuilder<TArrayElement>(
 				path: new StringBuilder()

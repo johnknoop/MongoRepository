@@ -86,7 +86,7 @@ public class ArrayFiltersTests : IClassFixture<LaunchSettingsFixture>
 	public void ArrayFiltersPathBuilder_ShouldProduceCorrectPaths()
 	{
 		ArrayFilters.CreateArrayFilterPath<Show>()
-			.SelectArray(x => x.Seasons, "a")
+			.SelectEnumerable(x => x.Seasons, "a")
 			.SelectEnumerable(x => x.Episodes, "b")
 			.SelectProperty(x => x.Title)
 			.Build()
@@ -135,7 +135,7 @@ public class ArrayFiltersTests : IClassFixture<LaunchSettingsFixture>
 			filter: x => x.Title == "Game of Thrones",
 			update: x => x.Set(
 				ArrayFilters.CreateArrayFilterPath<Show>()
-					.SelectArray(x => x.Seasons, "a")
+					.SelectEnumerable(x => x.Seasons, "a")
 					.SelectEnumerable(x => x.Episodes, "b")
 					.SelectProperty(x => x.Title)
 					.Build(),
