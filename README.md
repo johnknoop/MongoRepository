@@ -292,39 +292,39 @@ Working with [ArrayFilters](https://www.mongodb.com/docs/manual/reference/operat
 
 ```cs
 await _repository.UpdateOneAsync(
-	filter: x => x.Title == "Game of Thrones",
-	update: x => x.Set(
-		"Seasons.$[a].Episodes.$[b].Title",
-		"Qarth"
-	),
-	options: new UpdateOptions
-	{
-		ArrayFilters = new List<ArrayFilterDefinition<Show>>
-		{
-			new BsonDocument("a.Year", new BsonDocument("$ne", "2013")),
-			new BsonDocument("b.Number", 2),
-		}
-	}
+    filter: x => x.Title == "Game of Thrones",
+    update: x => x.Set(
+        "Seasons.$[a].Episodes.$[b].Title",
+        "Qarth"
+    ),
+    options: new UpdateOptions
+    {
+        ArrayFilters = new List<ArrayFilterDefinition<Show>>
+        {
+            new BsonDocument("a.Year", new BsonDocument("$ne", "2013")),
+            new BsonDocument("b.Number", 2),
+        }
+    }
 );
 ```
 ...with this:
 ```cs
 await _repository.UpdateOneAsync(
-	filter: x => x.Title == "Game of Thrones",
-	update: x => x.Set(
-		ArrayFilters.CreateArrayFilterPath<Show>()
-			.SelectArray(x => x.Seasons, "a")
-			.SelectEnumerable(x => x.Episodes, "b")
-			.SelectProperty(x => x.Title)
-			.Build(),
-		"Qarth"
-	),
-	options: new UpdateOptions
-	{
-		ArrayFilters = ArrayFilters.DefineFilters<Show>()
-			.AddFilter("a", show => show.Seasons, f => f.Eq(x => x.Year, "2013"))
-			.ThenAddFilter("b", season => season.Episodes, f => f.Eq(x => x.Number, 2))
-	}
+    filter: x => x.Title == "Game of Thrones",
+    update: x => x.Set(
+        ArrayFilters.CreateArrayFilterPath<Show>()
+            .SelectArray(x => x.Seasons, "a")
+            .SelectEnumerable(x => x.Episodes, "b")
+            .SelectProperty(x => x.Title)
+            .Build(),
+        "Qarth"
+    ),
+    options: new UpdateOptions
+    {
+        ArrayFilters = ArrayFilters.DefineFilters<Show>()
+            .AddFilter("a", show => show.Seasons, f => f.Eq(x => x.Year, "2013"))
+            .ThenAddFilter("b", season => season.Episodes, f => f.Eq(x => x.Number, 2))
+    }
 );
 ```
 
