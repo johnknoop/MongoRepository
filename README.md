@@ -288,7 +288,7 @@ var allContacts = await soccerPlayersRepository
 
 ### ArrayFilters helpers
 
-Working with [ArrayFilters](https://www.mongodb.com/docs/manual/reference/operator/update/positional-filtered/) using C# driver is an unpleasant experience, in that it doesn't provide any compile-type checking. This library contains a few handy helpers that lets you replace this:
+Working with [ArrayFilters](https://www.mongodb.com/docs/manual/reference/operator/update/positional-filtered/) using the MongoDB C# driver is an unpleasant experience in that it doesn't provide any compile-time checking. This library contains a few handy helpers that lets you replace this code:
 
 ```cs
 await _repository.UpdateOneAsync(
